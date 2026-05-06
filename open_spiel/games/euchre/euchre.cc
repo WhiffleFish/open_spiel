@@ -279,77 +279,134 @@ void EuchreState::InformationStateTensor(Player player,
 
   std::fill(values.begin(), values.end(), 0.0);
   SPIEL_CHECK_EQ(values.size(), kInformationStateTensorSize);
-  if (upcard_ == kInvalidAction) return;
   auto ptr = values.begin();
-  // Dealer position
-  ptr[static_cast<int>(dealer_)] = 1;
-  ptr += kNumPlayers;
-  // Upcard
-  ptr[upcard_] = 1;
-  ptr += kNumCards;
-  // Bidding [Clubs, Diamonds, Hearts, Spades, Pass]
-  for (int i = 0; i < num_passes_; ++i) {
-    ptr[kNumSuits] = 1;
-    ptr += (kNumSuits + 1);
+
+  if (upcard_ != kInvalidAction) {
+    // Dealer position
+    ptr[static_cast<int>(dealer_)] = 1;
+    ptr += kNumPlayers;
+    // Upcard
+    ptr[upcard_] = 1;
+    ptr += kNumCards;
+    // Bidding [Clubs, Diamonds, Hearts, Spades, Pass]
+    for (int i = 0; i < num_passes_; ++i) {
+      ptr[kNumSuits] = 1;
+      ptr += (kNumSuits + 1);
+    }
+    if (num_passes_ != 2 * kNumPlayers) {
+      if (trump_suit_ != Suit::kInvalidSuit) {
+        ptr[static_cast<int>(trump_suit_)] = 1;
+      }
+      ptr += (kNumSuits + 1);
+      for (int i = 0; i < 2 * kNumPlayers - num_passes_ - 1; ++i)
+        ptr += (kNumSuits + 1);
+      // Go alone
+      if (declarer_go_alone_.value_or(false)) ptr[0] = 1;
+      if (lone_defender_ == first_defender_) ptr[1] = 1;
+      if (lone_defender_ == second_defender_) ptr[2] = 1;
+      ptr += 3;
+      // Current hand
+      for (int i = 0; i < kNumCards; ++i)
+        if (holder_[i] == player) ptr[i] = 1;
+      ptr += kNumCards;
+      // History of tricks, presented in the format: N E S W N E S
+      int current_trick = std::min(num_cards_played_ / num_active_players_,
+                                   static_cast<int>(tricks_.size() - 1));
+      for (int i = 0; i < current_trick; ++i) {
+        Player leader = tricks_[i].Leader();
+        ptr += leader * kNumCards;
+        int offset = 0;
+        for (auto card : tricks_[i].Cards()) {
+          ptr[card] = 1;
+          ptr += kNumCards;
+          ++offset;
+          while (!active_players_[(leader + offset) % kNumPlayers]) {
+            ptr += kNumCards;
+            ++offset;
+          }
+        }
+        SPIEL_CHECK_EQ(offset, kNumPlayers);
+        ptr += (kNumPlayers - leader - 1) * kNumCards;
+      }
+      Player leader = tricks_[current_trick].Leader();
+      int offset = 0;
+      if (leader != kInvalidPlayer) {
+        auto cards = tricks_[current_trick].Cards();
+        ptr += leader * kNumCards;
+        for (auto card : cards) {
+          ptr[card] = 1;
+          ptr += kNumCards;
+          ++offset;
+          while (!active_players_[(leader + offset) % kNumPlayers]) {
+            ptr += kNumCards;
+            ++offset;
+          }
+        }
+      }
+      // Current trick may contain less than four cards.
+      if (offset < kNumPlayers) {
+        ptr += (kNumPlayers - offset) * kNumCards;
+      }
+      // Move to the end of current trick.
+      ptr += (kNumPlayers - std::max(leader, 0) - 1) * kNumCards;
+      // Skip over unplayed tricks.
+      ptr += (kNumTricks - current_trick - 1) * kTrickTensorSize;
+    }
   }
-  if (num_passes_ == 2 * kNumPlayers) return;
-  if (trump_suit_ != Suit::kInvalidSuit) {
+  ptr = values.begin() + kLegacyInformationStateTensorSize;
+
+  // Public context features appended after the legacy tensor layout.
+  ptr[static_cast<int>(phase_)] = 1;
+  ptr += kNumPhases;
+
+  ptr[player] = 1;
+  ptr += kNumPlayers;
+
+  if (dealer_ >= 0) {
+    int relative_to_dealer = (player - dealer_ + kNumPlayers) % kNumPlayers;
+    ptr[relative_to_dealer] = 1;
+  }
+  ptr += kNumPlayers;
+
+  if (trump_suit_ == Suit::kInvalidSuit) {
+    ptr[kNumSuits] = 1;
+  } else {
     ptr[static_cast<int>(trump_suit_)] = 1;
   }
-  ptr += (kNumSuits + 1);
-  for (int i = 0; i < 2 * kNumPlayers - num_passes_ - 1; ++i)
-    ptr += (kNumSuits + 1);
-  // Go alone
-  if (declarer_go_alone_.value_or(false)) ptr[0] = 1;
-  if (lone_defender_ == first_defender_) ptr[1] = 1;
-  if (lone_defender_ == second_defender_) ptr[2] = 1;
-  ptr += 3;
-  // Current hand
-  for (int i = 0; i < kNumCards; ++i)
-    if (holder_[i] == player) ptr[i] = 1;
-  ptr += kNumCards;
-  // History of tricks, presented in the format: N E S W N E S
-  int current_trick = std::min(num_cards_played_ / num_active_players_,
-                               static_cast<int>(tricks_.size() - 1));
-  for (int i = 0; i < current_trick; ++i) {
-    Player leader = tricks_[i].Leader();
-    ptr += leader * kNumCards;
-    int offset = 0;
-    for (auto card : tricks_[i].Cards()) {
-      ptr[card] = 1;
-      ptr += kNumCards;
-      ++offset;
-      while (!active_players_[(leader + offset) % kNumPlayers]) {
-        ptr += kNumCards;
-        ++offset;
-      }
-    }
-    SPIEL_CHECK_EQ(offset, kNumPlayers);
-    ptr += (kNumPlayers - leader - 1) * kNumCards;
+  ptr += kNumTrumpTensorValues;
+
+  if (declarer_ != kInvalidPlayer) ptr[declarer_] = 1;
+  ptr += kNumPlayers;
+
+  if (declarer_partner_ != kInvalidPlayer) ptr[declarer_partner_] = 1;
+  ptr += kNumPlayers;
+
+  if (declarer_ == kInvalidPlayer) {
+    ptr[5] = 1;
+  } else if (player == declarer_) {
+    ptr[0] = 1;
+    ptr[3] = 1;
+  } else if (player == declarer_partner_) {
+    ptr[1] = 1;
+    ptr[3] = 1;
+  } else {
+    ptr[2] = 1;
+    ptr[4] = 1;
   }
-  Player leader = tricks_[current_trick].Leader();
-  int offset = 0;
-  if (leader != kInvalidPlayer) {
-    auto cards = tricks_[current_trick].Cards();
-    ptr += leader * kNumCards;
-    for (auto card : cards) {
-      ptr[card] = 1;
-      ptr += kNumCards;
-      ++offset;
-      while (!active_players_[(leader + offset) % kNumPlayers]) {
-        ptr += kNumCards;
-        ++offset;
-      }
-    }
+  ptr += kNumRoleTensorValues;
+
+  if (declarer_ == kInvalidPlayer) {
+    ptr[0] = 1;
+  } else if (!declarer_go_alone_.has_value()) {
+    ptr[1] = 1;
+  } else if (declarer_go_alone_.value()) {
+    ptr[3] = 1;
+  } else {
+    ptr[2] = 1;
   }
-  // Current trick may contain less than four cards.
-  if (offset < kNumPlayers) {
-    ptr += (kNumPlayers - offset) * kNumCards;
-  }
-  // Move to the end of current trick.
-  ptr += (kNumPlayers - std::max(leader, 0) - 1) * kNumCards;
-  // Skip over unplayed tricks.
-  ptr += (kNumTricks - current_trick - 1) * kTrickTensorSize;
+  if (lone_defender_ != kInvalidPlayer) ptr[4] = 1;
+  ptr += kNumGoAloneStatusTensorValues;
+
   SPIEL_CHECK_EQ(ptr, values.end());
 }
 

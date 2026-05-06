@@ -34,6 +34,7 @@ using euchre::EuchreState;
 void init_pyspiel_games_euchre(py::module& m) {
   py::module_ euchre = m.def_submodule("euchre");
 
+  euchre.attr("NUM_PLAYERS") = py::int_(euchre::kNumPlayers);
   euchre.attr("JACK_RANK") = py::int_(euchre::kJackRank);
   euchre.attr("NUM_SUITS") = py::int_(euchre::kNumSuits);
   euchre.attr("NUM_CARDS_PER_SUIT") = py::int_(euchre::kNumCardsPerSuit);
@@ -49,6 +50,19 @@ void init_pyspiel_games_euchre(py::module& m) {
   euchre.attr("MAX_BIDS") = py::int_(euchre::kMaxBids);
   euchre.attr("NUM_TRICKS") = py::int_(euchre::kNumTricks);
   euchre.attr("FULL_HAND_SIZE") = py::int_(euchre::kFullHandSize);
+  euchre.attr("NUM_PHASES") = py::int_(euchre::kNumPhases);
+  euchre.attr("NUM_TRUMP_TENSOR_VALUES") = py::int_(
+      euchre::kNumTrumpTensorValues);
+  euchre.attr("NUM_GO_ALONE_STATUS_TENSOR_VALUES") = py::int_(
+      euchre::kNumGoAloneStatusTensorValues);
+  euchre.attr("NUM_ROLE_TENSOR_VALUES") = py::int_(
+      euchre::kNumRoleTensorValues);
+  euchre.attr("LEGACY_INFORMATION_STATE_TENSOR_SIZE") = py::int_(
+      euchre::kLegacyInformationStateTensorSize);
+  euchre.attr("PUBLIC_FEATURE_TENSOR_SIZE") = py::int_(
+      euchre::kPublicFeatureTensorSize);
+  euchre.attr("INFORMATION_STATE_TENSOR_SIZE") = py::int_(
+      euchre::kInformationStateTensorSize);
 
   euchre.def("card_string", euchre::CardString);
   euchre.def("card_rank", py::overload_cast<int>(euchre::CardRank));

@@ -24,6 +24,7 @@ euchre = pyspiel.euchre
 class GamesEuchreTest(absltest.TestCase):
 
   def test_bindings(self):
+    self.assertEqual(euchre.NUM_PLAYERS, 4)
     self.assertEqual(euchre.JACK_RANK, 2)
     self.assertEqual(euchre.NUM_SUITS, 4)
     self.assertEqual(euchre.NUM_CARDS_PER_SUIT, 6)
@@ -38,7 +39,16 @@ class GamesEuchreTest(absltest.TestCase):
     self.assertEqual(euchre.MAX_BIDS, 8)
     self.assertEqual(euchre.NUM_TRICKS, 5)
     self.assertEqual(euchre.FULL_HAND_SIZE, 5)
+    self.assertEqual(euchre.NUM_PHASES, 7)
+    self.assertEqual(euchre.NUM_TRUMP_TENSOR_VALUES, euchre.NUM_SUITS + 1)
+    self.assertEqual(euchre.NUM_GO_ALONE_STATUS_TENSOR_VALUES, 5)
+    self.assertEqual(euchre.NUM_ROLE_TENSOR_VALUES, 6)
+    self.assertEqual(euchre.INFORMATION_STATE_TENSOR_SIZE,
+                     euchre.LEGACY_INFORMATION_STATE_TENSOR_SIZE +
+                     euchre.PUBLIC_FEATURE_TENSOR_SIZE)
     game = pyspiel.load_game('euchre')
+    self.assertEqual(game.information_state_tensor_shape(),
+                     [euchre.INFORMATION_STATE_TENSOR_SIZE])
     state = game.new_initial_state()
     self.assertEqual(state.num_cards_dealt(), 0)
     self.assertEqual(state.num_cards_played(), 0)
@@ -85,6 +95,91 @@ class GamesEuchreTest(absltest.TestCase):
     self.assertEqual(trick.leader(), pyspiel.PlayerId.INVALID)
     self.assertEqual(trick.winner(), pyspiel.PlayerId.INVALID)
     self.assertEqual(trick.cards(), [pyspiel.INVALID_ACTION])
+
+  def assertBits(self, tensor, offset, size, expected_ones):
+    expected_ones = set(expected_ones)
+    for i in range(size):
+      self.assertEqual(tensor[offset + i], 1.0 if i in expected_ones else 0.0)
+
+  def test_public_infostate_features(self):
+    game = pyspiel.load_game('euchre')
+    state = game.new_initial_state()
+
+    tensor = state.information_state_tensor(2)
+    offset = euchre.LEGACY_INFORMATION_STATE_TENSOR_SIZE
+    self.assertBits(tensor, offset, euchre.NUM_PHASES,
+                    [int(euchre.Phase.DEALER_SELECTION)])
+    offset += euchre.NUM_PHASES
+    self.assertBits(tensor, offset, euchre.NUM_PLAYERS, [2])
+    offset += euchre.NUM_PLAYERS
+    self.assertBits(tensor, offset, euchre.NUM_PLAYERS, [])
+    offset += euchre.NUM_PLAYERS
+    self.assertBits(tensor, offset, euchre.NUM_TRUMP_TENSOR_VALUES,
+                    [euchre.NUM_SUITS])
+    offset += euchre.NUM_TRUMP_TENSOR_VALUES
+    self.assertBits(tensor, offset, euchre.NUM_PLAYERS, [])
+    offset += euchre.NUM_PLAYERS
+    self.assertBits(tensor, offset, euchre.NUM_PLAYERS, [])
+    offset += euchre.NUM_PLAYERS
+    self.assertBits(tensor, offset, euchre.NUM_ROLE_TENSOR_VALUES, [5])
+    offset += euchre.NUM_ROLE_TENSOR_VALUES
+    self.assertBits(tensor, offset,
+                    euchre.NUM_GO_ALONE_STATUS_TENSOR_VALUES, [0])
+
+    state.apply_action(0)
+    for card in range(4 * euchre.NUM_TRICKS):
+      state.apply_action(card)
+    state.apply_action(4 * euchre.NUM_TRICKS)
+
+    tensor = state.information_state_tensor(1)
+    offset = euchre.LEGACY_INFORMATION_STATE_TENSOR_SIZE
+    self.assertBits(tensor, offset, euchre.NUM_PHASES,
+                    [int(euchre.Phase.BIDDING)])
+    offset += euchre.NUM_PHASES
+    self.assertBits(tensor, offset, euchre.NUM_PLAYERS, [1])
+    offset += euchre.NUM_PLAYERS
+    self.assertBits(tensor, offset, euchre.NUM_PLAYERS, [1])
+    offset += euchre.NUM_PLAYERS
+    self.assertBits(tensor, offset, euchre.NUM_TRUMP_TENSOR_VALUES,
+                    [euchre.NUM_SUITS])
+
+    state.apply_action(euchre.CLUBS_TRUMP_ACTION)
+    tensor = state.information_state_tensor(1)
+    offset = euchre.LEGACY_INFORMATION_STATE_TENSOR_SIZE
+    self.assertBits(tensor, offset, euchre.NUM_PHASES,
+                    [int(euchre.Phase.DISCARD)])
+    offset += euchre.NUM_PHASES + euchre.NUM_PLAYERS + euchre.NUM_PLAYERS
+    self.assertBits(tensor, offset, euchre.NUM_TRUMP_TENSOR_VALUES,
+                    [int(euchre.Suit.CLUBS)])
+    offset += euchre.NUM_TRUMP_TENSOR_VALUES
+    self.assertBits(tensor, offset, euchre.NUM_PLAYERS, [1])
+    offset += euchre.NUM_PLAYERS
+    self.assertBits(tensor, offset, euchre.NUM_PLAYERS, [3])
+    offset += euchre.NUM_PLAYERS
+    self.assertBits(tensor, offset, euchre.NUM_ROLE_TENSOR_VALUES, [0, 3])
+    offset += euchre.NUM_ROLE_TENSOR_VALUES
+    self.assertBits(tensor, offset,
+                    euchre.NUM_GO_ALONE_STATUS_TENSOR_VALUES, [1])
+
+    state.apply_action(0)
+    alone_state = state.clone()
+    alone_state.apply_action(euchre.GO_ALONE_ACTION)
+    tensor = alone_state.information_state_tensor(1)
+    offset = (euchre.LEGACY_INFORMATION_STATE_TENSOR_SIZE + euchre.NUM_PHASES +
+              euchre.NUM_PLAYERS + euchre.NUM_PLAYERS +
+              euchre.NUM_TRUMP_TENSOR_VALUES + euchre.NUM_PLAYERS +
+              euchre.NUM_PLAYERS + euchre.NUM_ROLE_TENSOR_VALUES)
+    self.assertBits(tensor, offset,
+                    euchre.NUM_GO_ALONE_STATUS_TENSOR_VALUES, [3])
+
+    state.apply_action(euchre.PLAY_WITH_PARTNER_ACTION)
+    tensor = state.information_state_tensor(1)
+    offset = (euchre.LEGACY_INFORMATION_STATE_TENSOR_SIZE + euchre.NUM_PHASES +
+              euchre.NUM_PLAYERS + euchre.NUM_PLAYERS +
+              euchre.NUM_TRUMP_TENSOR_VALUES + euchre.NUM_PLAYERS +
+              euchre.NUM_PLAYERS + euchre.NUM_ROLE_TENSOR_VALUES)
+    self.assertBits(tensor, offset,
+                    euchre.NUM_GO_ALONE_STATUS_TENSOR_VALUES, [2])
 
 
 if __name__ == '__main__':

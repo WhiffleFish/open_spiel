@@ -64,13 +64,30 @@ inline constexpr int kFullHandSize = 5;
 inline constexpr int kMaxScore = 4;
 inline constexpr int kMinScore = -4;
 inline constexpr int kTrickTensorSize = kNumCards * 7;  // N E S W N E S
-inline constexpr int kInformationStateTensorSize =
+inline constexpr int kNumPhases = 7;
+inline constexpr int kNumTrumpTensorValues = kNumSuits + 1;  // C/D/H/S/none
+inline constexpr int kNumGoAloneStatusTensorValues =
+    5;  // unavailable, pending, partner, alone, lone defender
+inline constexpr int kNumRoleTensorValues =
+    6;  // declarer, partner, defender, maker team, defender team, none
+inline constexpr int kLegacyInformationStateTensorSize =
     kNumPlayers                       // Dealer
     + kNumCards                       // Upcard
     + (kNumSuits + 1) * kMaxBids      // Bidding
     + 3                               // Go alone (declarer, defender 1 & 2)
     + kNumCards                       // Current hand
     + kNumTricks * kTrickTensorSize;  // History of tricks
+inline constexpr int kPublicFeatureTensorSize =
+    kNumPhases                        // Phase
+    + kNumPlayers                     // Observer seat
+    + kNumPlayers                     // Observer relative to dealer
+    + kNumTrumpTensorValues           // Trump suit, or none
+    + kNumPlayers                     // Declarer
+    + kNumPlayers                     // Declarer partner
+    + kNumRoleTensorValues            // Observer role
+    + kNumGoAloneStatusTensorValues;  // Go-alone status
+inline constexpr int kInformationStateTensorSize =
+    kLegacyInformationStateTensorSize + kPublicFeatureTensorSize;
 
 enum class Phase { kDealerSelection, kDeal, kBidding, kDiscard, kGoAlone, kPlay,
                    kGameOver };
