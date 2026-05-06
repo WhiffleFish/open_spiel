@@ -20,12 +20,12 @@
 // https://en.wikipedia.org/wiki/Euchre
 // https://www.pagat.com/euchre/euchre.html
 //
-// This implementation uses standard North American rules with "super-Euchres",
-// i.e. the makers lose 4 points if they fail to win a single trick. By default,
-// only the declarer has the option of playing alone, but optionally the
-// defenders can go alone as well. The popular variation "stick the dealer" is
-// enabled by default as it has interesting strategic implications and increases
-// playability by avoiding drawn hands.
+// This implementation uses standard North American rules. By default, only the
+// declarer has the option of playing alone, but optionally the defenders can go
+// alone as well. The popular variation "stick the dealer" is enabled by default
+// as it has interesting strategic implications and increases playability by
+// avoiding drawn hands. The "super-Euchre" variation, where the makers lose 4
+// points if they fail to win a single trick, is available as an opt-in rule.
 
 #include <functional>
 #include <map>
@@ -127,7 +127,7 @@ class Trick {
 class EuchreState : public State {
  public:
   EuchreState(std::shared_ptr<const Game> game, bool allow_lone_defender,
-              bool stick_the_dealer);
+              bool stick_the_dealer, bool super_euchre);
   Player CurrentPlayer() const override { return current_player_; }
   std::string ActionToString(Player player, Action action) const override;
   std::string ToString() const override;
@@ -159,6 +159,7 @@ class EuchreState : public State {
   int SecondDefender() const { return second_defender_; }
   absl::optional<bool> DeclarerGoAlone() const { return declarer_go_alone_; }
   Player LoneDefender() const { return lone_defender_; }
+  bool SuperEuchre() const { return super_euchre_; }
   std::vector<bool> ActivePlayers() const { return active_players_; }
   Player Dealer() const { return dealer_; }
 
@@ -204,6 +205,7 @@ class EuchreState : public State {
 
   const bool allow_lone_defender_;
   const bool stick_the_dealer_;
+  const bool super_euchre_;
 
   int num_cards_dealt_ = 0;
   int num_cards_played_ = 0;
@@ -238,7 +240,8 @@ class EuchreGame : public Game {
   std::unique_ptr<State> NewInitialState() const override {
     return std::unique_ptr<State>(new EuchreState(shared_from_this(),
         /*allow_lone_defender=*/allow_lone_defender_,
-        /*stick_the_dealer=*/stick_the_dealer_));
+        /*stick_the_dealer=*/stick_the_dealer_,
+        /*super_euchre=*/super_euchre_));
   }
   int NumPlayers() const override { return kNumPlayers; }
   double MinUtility() const override { return kMinScore; }
@@ -262,6 +265,7 @@ class EuchreGame : public Game {
  private:
   const bool allow_lone_defender_;
   const bool stick_the_dealer_;
+  const bool super_euchre_;
 };
 
 }  // namespace euchre

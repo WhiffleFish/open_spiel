@@ -6,7 +6,7 @@ GameType.information = Information.IMPERFECT_INFORMATION
 GameType.long_name = "Euchre"
 GameType.max_num_players = 4
 GameType.min_num_players = 4
-GameType.parameter_specification = ["allow_lone_defender", "stick_the_dealer"]
+GameType.parameter_specification = ["allow_lone_defender", "stick_the_dealer", "super_euchre"]
 GameType.provides_information_state_string = True
 GameType.provides_information_state_tensor = True
 GameType.provides_observation_string = True
@@ -19,7 +19,7 @@ GameType.utility = Utility.ZERO_SUM
 NumDistinctActions() = 31
 PolicyTensorShape() = [31]
 MaxChanceOutcomes() = 24
-GetParameters() = {allow_lone_defender=False,stick_the_dealer=True}
+GetParameters() = {allow_lone_defender=False,stick_the_dealer=True,super_euchre=False}
 NumPlayers() = 4
 MinUtility() = -4.0
 MaxUtility() = 4.0

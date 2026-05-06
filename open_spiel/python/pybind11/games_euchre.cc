@@ -92,6 +92,7 @@ void init_pyspiel_games_euchre(py::module& m) {
       .def("second_defender", &EuchreState::SecondDefender)
       .def("declarer_go_alone", &EuchreState::DeclarerGoAlone)
       .def("lone_defender", &EuchreState::LoneDefender)
+      .def("super_euchre", &EuchreState::SuperEuchre)
       .def("active_players", &EuchreState::ActivePlayers)
       .def("dealer", &EuchreState::Dealer)
       .def("current_phase", &EuchreState::CurrentPhase)

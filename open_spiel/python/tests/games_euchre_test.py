@@ -54,6 +54,7 @@ class GamesEuchreTest(absltest.TestCase):
     self.assertEqual(state.second_defender(), pyspiel.PlayerId.INVALID)
     self.assertIsNone(state.declarer_go_alone())
     self.assertEqual(state.lone_defender(), pyspiel.PlayerId.INVALID)
+    self.assertFalse(state.super_euchre())
     self.assertEqual(state.active_players(), [True, True, True, True])
     self.assertEqual(state.dealer(), pyspiel.INVALID_ACTION)
     self.assertEqual(state.current_phase(), euchre.Phase.DEALER_SELECTION)
@@ -73,6 +74,10 @@ class GamesEuchreTest(absltest.TestCase):
     self.assertEqual(trick.leader(), pyspiel.PlayerId.INVALID)
     self.assertEqual(trick.winner(), pyspiel.PlayerId.INVALID)
     self.assertEqual(trick.cards(), [pyspiel.INVALID_ACTION])
+
+    super_euchre_state = pyspiel.load_game(
+        'euchre(super_euchre=true)').new_initial_state()
+    self.assertTrue(super_euchre_state.super_euchre())
     trick = state.current_trick()
     self.assertEqual(trick.led_suit(), euchre.Suit.INVALID_SUIT)
     self.assertEqual(trick.trump_suit(), euchre.Suit.INVALID_SUIT)

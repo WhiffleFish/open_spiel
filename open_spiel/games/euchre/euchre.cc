@@ -50,6 +50,7 @@ const GameType kGameType{/*short_name=*/"euchre",
                          {
                              {"allow_lone_defender", GameParameter(false)},
                              {"stick_the_dealer", GameParameter(true)},
+                             {"super_euchre", GameParameter(false)},
                          }};
 
 std::shared_ptr<const Game> Factory(const GameParameters& params) {
@@ -87,13 +88,16 @@ int CardRank(int card, Suit trump_suit) {
 EuchreGame::EuchreGame(const GameParameters& params)
     : Game(kGameType, params),
       allow_lone_defender_(ParameterValue<bool>("allow_lone_defender")),
-      stick_the_dealer_(ParameterValue<bool>("stick_the_dealer")) {}
+      stick_the_dealer_(ParameterValue<bool>("stick_the_dealer")),
+      super_euchre_(ParameterValue<bool>("super_euchre")) {}
 
 EuchreState::EuchreState(std::shared_ptr<const Game> game,
-                         bool allow_lone_defender, bool stick_the_dealer)
+                         bool allow_lone_defender, bool stick_the_dealer,
+                         bool super_euchre)
     : State(game),
       allow_lone_defender_(allow_lone_defender),
-      stick_the_dealer_(stick_the_dealer) {}
+      stick_the_dealer_(stick_the_dealer),
+      super_euchre_(super_euchre) {}
 
 std::string EuchreState::ActionToString(Player player, Action action) const {
   if (history_.empty()) return DirString(action);
@@ -685,7 +689,7 @@ void EuchreState::ComputeScore() {
   int makers_tricks_won = tricks_won[declarer_] + tricks_won[declarer_partner_];
   int makers_score;
   if (makers_tricks_won >= 0 && makers_tricks_won <= 2) {
-    if (lone_defender_ >= 0 || makers_tricks_won == 0)
+    if (lone_defender_ >= 0 || (super_euchre_ && makers_tricks_won == 0))
       makers_score = -4;
     else
       makers_score = -2;
