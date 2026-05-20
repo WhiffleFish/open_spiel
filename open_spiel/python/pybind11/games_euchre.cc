@@ -29,6 +29,8 @@ namespace open_spiel {
 
 namespace py = ::pybind11;
 using euchre::EuchreGame;
+using euchre::EuchreFullGame;
+using euchre::EuchreFullState;
 using euchre::EuchreState;
 
 void init_pyspiel_games_euchre(py::module& m) {
@@ -49,6 +51,11 @@ void init_pyspiel_games_euchre(py::module& m) {
   euchre.attr("MAX_BIDS") = py::int_(euchre::kMaxBids);
   euchre.attr("NUM_TRICKS") = py::int_(euchre::kNumTricks);
   euchre.attr("FULL_HAND_SIZE") = py::int_(euchre::kFullHandSize);
+  euchre.attr("FULL_GAME_WINNING_SCORE") =
+      py::int_(euchre::kFullGameWinningScore);
+  euchre.attr("MAX_FULL_GAME_HANDS") = py::int_(euchre::kMaxFullGameHands);
+  euchre.attr("FULL_GAME_INFORMATION_STATE_TENSOR_SIZE") =
+      py::int_(euchre::kFullGameInformationStateTensorSize);
 
   euchre.def("card_string", euchre::CardString);
   euchre.def("card_rank", py::overload_cast<int>(euchre::CardRank));
@@ -128,6 +135,37 @@ void init_pyspiel_games_euchre(py::module& m) {
           },
           [](const std::string& data) {  // __setstate__
             return std::dynamic_pointer_cast<EuchreGame>(
+                std::const_pointer_cast<Game>(LoadGame(data)));
+          }));
+
+  py::classh<EuchreFullState, State> full_state_class(euchre,
+                                                      "EuchreFullState");
+  full_state_class
+      .def("team_scores", &EuchreFullState::TeamScores)
+      .def("current_hand_number", &EuchreFullState::CurrentHandNumber)
+      .def("current_dealer", &EuchreFullState::CurrentDealer)
+      .def("current_hand_state", &EuchreFullState::CurrentHandState,
+           py::return_value_policy::reference_internal)
+      // Pickle support
+      .def(py::pickle(
+          [](const EuchreFullState& state) {  // __getstate__
+            return SerializeGameAndState(*state.GetGame(), state);
+          },
+          [](const std::string& data) {  // __setstate__
+            std::pair<std::shared_ptr<const Game>, std::unique_ptr<State>>
+                game_and_state = DeserializeGameAndState(data);
+            return dynamic_cast<EuchreFullState*>(
+                game_and_state.second.release());
+          }));
+
+  py::classh<EuchreFullGame, Game>(m, "EuchreFullGame")
+      // Pickle support
+      .def(py::pickle(
+          [](std::shared_ptr<const EuchreFullGame> game) {  // __getstate__
+            return game->ToString();
+          },
+          [](const std::string& data) {  // __setstate__
+            return std::dynamic_pointer_cast<EuchreFullGame>(
                 std::const_pointer_cast<Game>(LoadGame(data)));
           }));
 }

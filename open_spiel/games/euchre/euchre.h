@@ -27,6 +27,7 @@
 // enabled by default as it has interesting strategic implications and increases
 // playability by avoiding drawn hands.
 
+#include <array>
 #include <functional>
 #include <map>
 #include <memory>
@@ -35,6 +36,7 @@
 #include <vector>
 
 #include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "open_spiel/game_parameters.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
 
@@ -63,6 +65,9 @@ inline constexpr int kNumTricks = 5;
 inline constexpr int kFullHandSize = 5;
 inline constexpr int kMaxScore = 4;
 inline constexpr int kMinScore = -4;
+inline constexpr int kFullGameWinningScore = 10;
+inline constexpr int kFullGameMaxScore = kFullGameWinningScore + kMaxScore - 1;
+inline constexpr int kMaxFullGameHands = 2 * kFullGameWinningScore - 1;
 inline constexpr int kTrickTensorSize = kNumCards * 7;  // N E S W N E S
 inline constexpr int kInformationStateTensorSize =
     kNumPlayers                       // Dealer
@@ -71,6 +76,10 @@ inline constexpr int kInformationStateTensorSize =
     + 3                               // Go alone (declarer, defender 1 & 2)
     + kNumCards                       // Current hand
     + kNumTricks * kTrickTensorSize;  // History of tricks
+inline constexpr int kFullGameInformationStateTensorSize =
+    2 * (kFullGameMaxScore + 1)       // N/S score, E/W score
+    + kMaxFullGameHands               // Current hand number
+    + kInformationStateTensorSize;    // Current hand state
 
 enum class Phase { kDealerSelection, kDeal, kBidding, kDiscard, kGoAlone, kPlay,
                    kGameOver };
@@ -248,10 +257,14 @@ class EuchreGame : public Game {
     return {kInformationStateTensorSize};
   }
   int MaxGameLength() const override {
-    return (2 * kNumPlayers) +        // Max 2 rounds of bidding
-        1 +                           // Declarer go alone?
-        (2 * allow_lone_defender_) +  // Defenders go alone? (optional)
-        (kNumPlayers * kNumTricks);   // Play of hand
+    return 1 +                         // Dealer selection
+        (kNumPlayers * kNumTricks) +    // Deal hands
+        1 +                             // Upcard
+        (2 * kNumPlayers) +             // Max 2 rounds of bidding
+        1 +                             // Dealer discard
+        1 +                             // Declarer go alone?
+        (2 * allow_lone_defender_) +    // Defenders go alone? (optional)
+        (kNumPlayers * kNumTricks);     // Play of hand
   }
   int MaxChanceNodesInHistory() const override {
     return 1 +                        // Dealer selection
@@ -262,6 +275,79 @@ class EuchreGame : public Game {
  private:
   const bool allow_lone_defender_;
   const bool stick_the_dealer_;
+};
+
+class EuchreFullState : public State {
+ public:
+  EuchreFullState(std::shared_ptr<const Game> game,
+                  GameParameters hand_game_params);
+  EuchreFullState(const EuchreFullState& other);
+
+  Player CurrentPlayer() const override;
+  std::string ActionToString(Player player, Action action) const override;
+  std::string ToString() const override;
+  bool IsTerminal() const override { return is_terminal_; }
+  std::vector<double> Returns() const override { return returns_; }
+  void InformationStateTensor(Player player,
+                              absl::Span<float> values) const override;
+  std::unique_ptr<State> Clone() const override {
+    return std::unique_ptr<State>(new EuchreFullState(*this));
+  }
+  std::unique_ptr<State> ResampleFromInfostate(
+      int player_id, std::function<double()> rng) const override;
+  std::string InformationStateString(Player player) const override;
+  std::string ObservationString(Player player) const override;
+  std::vector<Action> LegalActions() const override;
+  std::vector<std::pair<Action, double>> ChanceOutcomes() const override;
+
+  std::vector<int> TeamScores() const;
+  int CurrentHandNumber() const { return hand_number_; }
+  Player CurrentDealer() const { return current_dealer_; }
+  const EuchreState* CurrentHandState() const { return hand_state_.get(); }
+
+ protected:
+  void DoApplyAction(Action action) override;
+
+ private:
+  void StartHand(Player dealer);
+  void StartNextHand();
+  void ScoreCompletedHand();
+  void SetTerminalReturns();
+
+  GameParameters hand_game_params_;
+  std::shared_ptr<const Game> hand_game_;
+  std::unique_ptr<EuchreState> hand_state_;
+  std::array<int, 2> team_scores_ = {0, 0};  // N/S, E/W.
+  std::vector<double> returns_ = std::vector<double>(kNumPlayers, 0);
+  int hand_number_ = 0;
+  Player current_dealer_ = kInvalidPlayer;
+  bool is_terminal_ = false;
+};
+
+class EuchreFullGame : public Game {
+ public:
+  explicit EuchreFullGame(const GameParameters& params);
+  int NumDistinctActions() const override { return kNumDistinctActions; }
+  int MaxChanceOutcomes() const override { return kNumCards; }
+  std::unique_ptr<State> NewInitialState() const override {
+    return std::unique_ptr<State>(
+        new EuchreFullState(shared_from_this(), hand_game_params_));
+  }
+  int NumPlayers() const override { return kNumPlayers; }
+  double MinUtility() const override { return -1; }
+  double MaxUtility() const override { return 1; }
+  absl::optional<double> UtilitySum() const override { return 0; }
+  std::vector<int> InformationStateTensorShape() const override {
+    return {kFullGameInformationStateTensorSize};
+  }
+  std::string ActionToString(Player player, Action action_id) const override;
+  int MaxGameLength() const override;
+  int MaxChanceNodesInHistory() const override;
+
+ private:
+  const bool allow_lone_defender_;
+  GameParameters hand_game_params_;
+  std::shared_ptr<const Game> hand_game_;
 };
 
 }  // namespace euchre
