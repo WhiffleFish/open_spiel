@@ -24,6 +24,7 @@
 #include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
 #include "open_spiel/abseil-cpp/absl/strings/str_format.h"
 #include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "open_spiel/abseil-cpp/absl/types/span.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
@@ -52,13 +53,39 @@ const GameType kGameType{/*short_name=*/"euchre",
                              {"stick_the_dealer", GameParameter(true)},
                          }};
 
+const GameType kFullGameType{
+    /*short_name=*/"euchre_full",
+    /*long_name=*/"Euchre Full Game",
+    GameType::Dynamics::kSequential,
+    GameType::ChanceMode::kExplicitStochastic,
+    GameType::Information::kImperfectInformation,
+    GameType::Utility::kZeroSum,
+    GameType::RewardModel::kTerminal,
+    /*max_num_players=*/kNumPlayers,
+    /*min_num_players=*/kNumPlayers,
+    /*provides_information_state_string=*/true,
+    /*provides_information_state_tensor=*/true,
+    /*provides_observation_string=*/true,
+    /*provides_observation_tensor=*/false,
+    /*parameter_specification=*/
+    {
+        {"allow_lone_defender", GameParameter(false)},
+    }};
+
 std::shared_ptr<const Game> Factory(const GameParameters& params) {
   return std::shared_ptr<const Game>(new EuchreGame(params));
 }
 
+std::shared_ptr<const Game> FullGameFactory(const GameParameters& params) {
+  return std::shared_ptr<const Game>(new EuchreFullGame(params));
+}
+
 REGISTER_SPIEL_GAME(kGameType, Factory);
+REGISTER_SPIEL_GAME(kFullGameType, FullGameFactory);
 
 open_spiel::RegisterSingleTensorObserver single_tensor(kGameType.short_name);
+open_spiel::RegisterSingleTensorObserver full_game_single_tensor(
+    kFullGameType.short_name);
 
 std::map<Suit, Suit> same_color_suit {
   {Suit::kClubs, Suit::kSpades}, {Suit::kSpades, Suit::kClubs},
@@ -94,6 +121,202 @@ EuchreState::EuchreState(std::shared_ptr<const Game> game,
     : State(game),
       allow_lone_defender_(allow_lone_defender),
       stick_the_dealer_(stick_the_dealer) {}
+
+EuchreFullState::EuchreFullState(std::shared_ptr<const Game> game,
+                                 GameParameters hand_game_params)
+    : State(game), hand_game_params_(std::move(hand_game_params)) {
+  hand_game_ = LoadGame("euchre", hand_game_params_);
+  StartHand(kInvalidPlayer);
+}
+
+EuchreFullState::EuchreFullState(const EuchreFullState& other)
+    : State(other),
+      hand_game_params_(other.hand_game_params_),
+      hand_game_(other.hand_game_),
+      hand_state_(std::unique_ptr<EuchreState>(
+          dynamic_cast<EuchreState*>(other.hand_state_->Clone().release()))),
+      team_scores_(other.team_scores_),
+      returns_(other.returns_),
+      hand_number_(other.hand_number_),
+      current_dealer_(other.current_dealer_),
+      is_terminal_(other.is_terminal_) {}
+
+Player EuchreFullState::CurrentPlayer() const {
+  if (is_terminal_) return kTerminalPlayerId;
+  return hand_state_->CurrentPlayer();
+}
+
+std::string EuchreFullState::ActionToString(Player player,
+                                            Action action) const {
+  return hand_state_->ActionToString(player, action);
+}
+
+std::string EuchreFullState::ToString() const {
+  std::string rv = absl::StrCat(
+      "Full-game score: N/S ", team_scores_[0], " E/W ", team_scores_[1],
+      "\nTarget: ", kFullGameWinningScore, "\nHand: ", hand_number_ + 1,
+      "\n");
+  if (is_terminal_) {
+    absl::StrAppend(&rv, "Winner: ",
+                    team_scores_[0] > team_scores_[1] ? "N/S" : "E/W",
+                    "\n");
+  }
+  absl::StrAppend(&rv, hand_state_->ToString());
+  return rv;
+}
+
+std::string EuchreFullState::InformationStateString(Player player) const {
+  SPIEL_CHECK_GE(player, 0);
+  SPIEL_CHECK_LT(player, num_players_);
+  return absl::StrCat("Full-game score: N/S ", team_scores_[0], " E/W ",
+                      team_scores_[1], "\nHand: ", hand_number_ + 1, "\n",
+                      hand_state_->InformationStateString(player));
+}
+
+std::string EuchreFullState::ObservationString(Player player) const {
+  return InformationStateString(player);
+}
+
+void EuchreFullState::InformationStateTensor(Player player,
+                                             absl::Span<float> values) const {
+  SPIEL_CHECK_GE(player, 0);
+  SPIEL_CHECK_LT(player, num_players_);
+  SPIEL_CHECK_EQ(values.size(), kFullGameInformationStateTensorSize);
+  std::fill(values.begin(), values.end(), 0.0);
+
+  auto ptr = values.begin();
+  ptr[std::min(team_scores_[0], kFullGameMaxScore)] = 1;
+  ptr += kFullGameMaxScore + 1;
+  ptr[std::min(team_scores_[1], kFullGameMaxScore)] = 1;
+  ptr += kFullGameMaxScore + 1;
+  ptr[std::min(hand_number_, kMaxFullGameHands - 1)] = 1;
+  ptr += kMaxFullGameHands;
+
+  std::vector<float> hand_values(kInformationStateTensorSize);
+  hand_state_->InformationStateTensor(player, absl::MakeSpan(hand_values));
+  std::copy(hand_values.begin(), hand_values.end(), ptr);
+  ptr += kInformationStateTensorSize;
+  SPIEL_CHECK_EQ(ptr, values.end());
+}
+
+std::unique_ptr<State> EuchreFullState::ResampleFromInfostate(
+    int player_id, std::function<double()> rng) const {
+  std::unique_ptr<EuchreFullState> clone(new EuchreFullState(*this));
+  clone->hand_state_ = std::unique_ptr<EuchreState>(dynamic_cast<EuchreState*>(
+      hand_state_->ResampleFromInfostate(player_id, rng).release()));
+  SPIEL_CHECK_TRUE(clone->hand_state_ != nullptr);
+  return clone;
+}
+
+std::vector<Action> EuchreFullState::LegalActions() const {
+  if (is_terminal_) return {};
+  return hand_state_->LegalActions();
+}
+
+std::vector<std::pair<Action, double>> EuchreFullState::ChanceOutcomes() const {
+  if (is_terminal_) return {};
+  return hand_state_->ChanceOutcomes();
+}
+
+std::vector<int> EuchreFullState::TeamScores() const {
+  return {team_scores_[0], team_scores_[1]};
+}
+
+void EuchreFullState::StartHand(Player dealer) {
+  std::unique_ptr<State> state = hand_game_->NewInitialState();
+  hand_state_ =
+      std::unique_ptr<EuchreState>(dynamic_cast<EuchreState*>(state.release()));
+  SPIEL_CHECK_TRUE(hand_state_ != nullptr);
+  if (dealer != kInvalidPlayer) {
+    current_dealer_ = dealer;
+    hand_state_->ApplyAction(dealer);
+  }
+}
+
+void EuchreFullState::StartNextHand() {
+  SPIEL_CHECK_NE(current_dealer_, kInvalidPlayer);
+  ++hand_number_;
+  StartHand((current_dealer_ + 1) % kNumPlayers);
+}
+
+void EuchreFullState::ScoreCompletedHand() {
+  std::vector<double> hand_returns = hand_state_->Returns();
+  SPIEL_CHECK_EQ(hand_returns.size(), kNumPlayers);
+  SPIEL_CHECK_EQ(hand_returns[kNorth], hand_returns[kSouth]);
+  SPIEL_CHECK_EQ(hand_returns[kEast], hand_returns[kWest]);
+  SPIEL_CHECK_EQ(hand_returns[kNorth], -hand_returns[kEast]);
+
+  int ns_delta = static_cast<int>(hand_returns[kNorth]);
+  int ew_delta = static_cast<int>(hand_returns[kEast]);
+  if (ns_delta > 0) {
+    team_scores_[0] += ns_delta;
+  } else if (ew_delta > 0) {
+    team_scores_[1] += ew_delta;
+  }
+}
+
+void EuchreFullState::SetTerminalReturns() {
+  double ns_return = team_scores_[0] > team_scores_[1] ? 1.0 : -1.0;
+  returns_[kNorth] = ns_return;
+  returns_[kSouth] = ns_return;
+  returns_[kEast] = -ns_return;
+  returns_[kWest] = -ns_return;
+}
+
+void EuchreFullState::DoApplyAction(Action action) {
+  SPIEL_CHECK_FALSE(is_terminal_);
+  bool selecting_initial_dealer =
+      hand_state_->CurrentPhase() == Phase::kDealerSelection;
+
+  hand_state_->ApplyAction(action);
+  if (selecting_initial_dealer) {
+    current_dealer_ = action;
+    return;
+  }
+  if (!hand_state_->IsTerminal()) return;
+
+  ScoreCompletedHand();
+  if (team_scores_[0] >= kFullGameWinningScore ||
+      team_scores_[1] >= kFullGameWinningScore) {
+    is_terminal_ = true;
+    SetTerminalReturns();
+  } else {
+    StartNextHand();
+  }
+}
+
+EuchreFullGame::EuchreFullGame(const GameParameters& params)
+    : Game(kFullGameType, params),
+      allow_lone_defender_(ParameterValue<bool>("allow_lone_defender")) {
+  hand_game_params_["allow_lone_defender"] =
+      GameParameter(allow_lone_defender_);
+  hand_game_params_["stick_the_dealer"] = GameParameter(true);
+  hand_game_ = LoadGame("euchre", hand_game_params_);
+}
+
+std::string EuchreFullGame::ActionToString(Player player,
+                                           Action action_id) const {
+  return hand_game_->ActionToString(player, action_id);
+}
+
+int EuchreFullGame::MaxGameLength() const {
+  return kMaxFullGameHands *
+         (1 +                         // Dealer selection
+          (kNumPlayers * kNumTricks) + // Deal hands
+          1 +                          // Upcard
+          (2 * kNumPlayers) +          // Max 2 rounds of bidding
+          1 +                          // Dealer discard
+          1 +                          // Declarer go alone?
+          (2 * allow_lone_defender_) + // Defenders go alone? (optional)
+          (kNumPlayers * kNumTricks)); // Play of hand
+}
+
+int EuchreFullGame::MaxChanceNodesInHistory() const {
+  return 1 +  // Initial dealer selection
+         kMaxFullGameHands *
+             ((kNumPlayers * kNumTricks) +  // Deal hands
+              1);                           // Upcard
+}
 
 std::string EuchreState::ActionToString(Player player, Action action) const {
   if (history_.empty()) return DirString(action);

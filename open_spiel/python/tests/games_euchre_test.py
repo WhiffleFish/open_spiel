@@ -38,6 +38,8 @@ class GamesEuchreTest(absltest.TestCase):
     self.assertEqual(euchre.MAX_BIDS, 8)
     self.assertEqual(euchre.NUM_TRICKS, 5)
     self.assertEqual(euchre.FULL_HAND_SIZE, 5)
+    self.assertEqual(euchre.FULL_GAME_WINNING_SCORE, 10)
+    self.assertEqual(euchre.MAX_FULL_GAME_HANDS, 19)
     game = pyspiel.load_game('euchre')
     state = game.new_initial_state()
     self.assertEqual(state.num_cards_dealt(), 0)
@@ -80,6 +82,25 @@ class GamesEuchreTest(absltest.TestCase):
     self.assertEqual(trick.leader(), pyspiel.PlayerId.INVALID)
     self.assertEqual(trick.winner(), pyspiel.PlayerId.INVALID)
     self.assertEqual(trick.cards(), [pyspiel.INVALID_ACTION])
+
+  def test_full_game_bindings(self):
+    game = pyspiel.load_game('euchre_full')
+    self.assertEqual(game.information_state_tensor_shape(), [
+        euchre.FULL_GAME_INFORMATION_STATE_TENSOR_SIZE
+    ])
+    state = game.new_initial_state()
+    self.assertEqual(state.team_scores(), [0, 0])
+    self.assertEqual(state.current_hand_number(), 0)
+    self.assertEqual(state.current_dealer(), pyspiel.PlayerId.INVALID)
+    self.assertEqual(state.current_hand_state().current_phase(),
+                     euchre.Phase.DEALER_SELECTION)
+    tensor = state.information_state_tensor(0)
+    self.assertLen(tensor, euchre.FULL_GAME_INFORMATION_STATE_TENSOR_SIZE)
+    self.assertEqual(tensor[0], 1)    # N/S score is 0.
+    self.assertEqual(tensor[14], 1)   # E/W score is 0.
+    self.assertEqual(tensor[28], 1)   # First hand, zero-based.
+    self.assertEqual(sum(tensor[:47]), 3)
+    self.assertEqual(sum(tensor[47:]), 0)
 
 
 if __name__ == '__main__':

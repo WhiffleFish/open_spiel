@@ -32,12 +32,58 @@ namespace {
 void BasicGameTests() {
   testing::LoadGameTest("euchre");
   testing::ChanceOutcomesTest(*LoadGame("euchre"));
-  testing::RandomSimTest(*LoadGame("euchre"), 10);
+  testing::RandomSimTest(*LoadGame("euchre"), 10, /*serialize=*/true,
+                         /*verbose=*/false);
 
   auto observer = LoadGame("euchre")
                       ->MakeObserver(kInfoStateObsType,
                                      GameParametersFromString("single_tensor"));
   testing::RandomSimTestCustomObserver(*LoadGame("euchre"), observer);
+
+  std::shared_ptr<const Game> full_game = LoadGame("euchre_full");
+  testing::LoadGameTest("euchre_full");
+  testing::ChanceOutcomesTest(*full_game);
+  testing::RandomSimTest(*full_game, 2, /*serialize=*/true,
+                         /*verbose=*/false);
+
+  auto full_game_observer = full_game->MakeObserver(
+      kInfoStateObsType, GameParametersFromString("single_tensor"));
+  testing::RandomSimTestCustomObserver(*full_game, full_game_observer);
+}
+
+void FullGameTerminalScoreTest() {
+  std::shared_ptr<const Game> game = LoadGame("euchre_full");
+  std::mt19937 rng(12345);
+  for (int sim = 0; sim < 10; ++sim) {
+    std::unique_ptr<State> state = game->NewInitialState();
+    int actions_taken = 0;
+    while (!state->IsTerminal()) {
+      std::vector<Action> actions = state->LegalActions();
+      std::uniform_int_distribution<int> dis(0, actions.size() - 1);
+      state->ApplyAction(actions[dis(rng)]);
+      ++actions_taken;
+      SPIEL_CHECK_LE(actions_taken, game->MaxGameLength());
+    }
+
+    const EuchreFullState* full_state =
+        dynamic_cast<const EuchreFullState*>(state.get());
+    SPIEL_CHECK_TRUE(full_state != nullptr);
+    std::vector<int> team_scores = full_state->TeamScores();
+    SPIEL_CHECK_EQ(team_scores.size(), 2);
+    SPIEL_CHECK_TRUE(
+        (team_scores[0] >= kFullGameWinningScore &&
+         team_scores[1] < kFullGameWinningScore) ||
+        (team_scores[1] >= kFullGameWinningScore &&
+         team_scores[0] < kFullGameWinningScore));
+    SPIEL_CHECK_LT(full_state->CurrentHandNumber(), kMaxFullGameHands);
+
+    std::vector<double> returns = state->Returns();
+    double ns_return = team_scores[0] > team_scores[1] ? 1.0 : -1.0;
+    SPIEL_CHECK_EQ(returns[kNorth], ns_return);
+    SPIEL_CHECK_EQ(returns[kSouth], ns_return);
+    SPIEL_CHECK_EQ(returns[kEast], -ns_return);
+    SPIEL_CHECK_EQ(returns[kWest], -ns_return);
+  }
 }
 
 void ResampleFromInfostateTest() {
@@ -66,11 +112,39 @@ void ResampleFromInfostateTest() {
   }
 }
 
+void FullGameResampleFromInfostateTest() {
+  std::shared_ptr<const Game> game = LoadGame("euchre_full");
+  std::mt19937 rng(12345);
+  UniformProbabilitySampler sampler;
+  int num_sims = 2;
+  for (int sim = 0; sim < num_sims; ++sim) {
+    std::unique_ptr<State> state = game->NewInitialState();
+    while (!state->IsTerminal()) {
+      if (!state->IsChanceNode()) {
+        for (int p = 0; p < state->NumPlayers(); ++p) {
+          std::unique_ptr<State> resampled =
+              state->ResampleFromInfostate(p, sampler);
+          SPIEL_CHECK_EQ(state->InformationStateTensor(p),
+                         resampled->InformationStateTensor(p));
+          SPIEL_CHECK_EQ(state->InformationStateString(p),
+                         resampled->InformationStateString(p));
+          SPIEL_CHECK_EQ(state->CurrentPlayer(), resampled->CurrentPlayer());
+        }
+      }
+      std::vector<Action> actions = state->LegalActions();
+      std::uniform_int_distribution<int> dis(0, actions.size() - 1);
+      state->ApplyAction(actions[dis(rng)]);
+    }
+  }
+}
+
 }  // namespace
 }  // namespace euchre
 }  // namespace open_spiel
 
 int main(int argc, char** argv) {
   open_spiel::euchre::BasicGameTests();
+  open_spiel::euchre::FullGameTerminalScoreTest();
   open_spiel::euchre::ResampleFromInfostateTest();
+  open_spiel::euchre::FullGameResampleFromInfostateTest();
 }
