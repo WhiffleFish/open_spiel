@@ -23,6 +23,24 @@ euchre = pyspiel.euchre
 
 class GamesEuchreTest(absltest.TestCase):
 
+  def _state_at_bidding(self):
+    state = pyspiel.load_game('euchre').new_initial_state()
+    state.apply_action(0)
+    while state.is_chance_node():
+      state.apply_action(state.chance_outcomes()[0][0])
+    return state
+
+  def _state_at_go_alone(self):
+    state = self._state_at_bidding()
+    call_action = next(
+        action for action in state.legal_actions()
+        if action != euchre.PASS_ACTION)
+    state.apply_action(call_action)
+    if state.current_phase() == euchre.Phase.DISCARD:
+      state.apply_action(state.legal_actions()[0])
+    self.assertEqual(state.current_phase(), euchre.Phase.GO_ALONE)
+    return state
+
   def test_bindings(self):
     self.assertEqual(euchre.JACK_RANK, 2)
     self.assertEqual(euchre.NUM_SUITS, 4)
@@ -101,6 +119,27 @@ class GamesEuchreTest(absltest.TestCase):
     self.assertEqual(tensor[28], 1)   # First hand, zero-based.
     self.assertEqual(sum(tensor[:47]), 3)
     self.assertEqual(sum(tensor[47:]), 0)
+
+  def test_information_state_bidding_and_go_alone_bits(self):
+    state = self._state_at_bidding()
+    state.apply_action(euchre.PASS_ACTION)
+    tensor = state.information_state_tensor(state.current_player())
+    self.assertEqual(tensor[28:68].index(1), 4)
+    self.assertEqual(tensor[68:72], [0, 0, 0, 0])
+
+    pending = self._state_at_go_alone()
+    pending_tensor = pending.information_state_tensor(pending.current_player())
+    self.assertEqual(pending_tensor[68:72], [0, 0, 0, 0])
+
+    partner = self._state_at_go_alone()
+    partner.apply_action(euchre.PLAY_WITH_PARTNER_ACTION)
+    partner_tensor = partner.information_state_tensor(partner.current_player())
+    self.assertEqual(partner_tensor[68:72], [0, 0, 0, 1])
+
+    alone = self._state_at_go_alone()
+    alone.apply_action(euchre.GO_ALONE_ACTION)
+    alone_tensor = alone.information_state_tensor(alone.current_player())
+    self.assertEqual(alone_tensor[68:72], [1, 0, 0, 1])
 
 
 if __name__ == '__main__':

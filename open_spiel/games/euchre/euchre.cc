@@ -508,7 +508,7 @@ void EuchreState::InformationStateTensor(Player player,
   ptr += kNumCards;
   // Bidding [Clubs, Diamonds, Hearts, Spades, Pass]
   for (int i = 0; i < num_passes_; ++i) {
-    ptr[kNumSuits + 1] = 1;
+    ptr[kNumSuits] = 1;
     ptr += (kNumSuits + 1);
   }
   if (num_passes_ == 2 * kNumPlayers) return;
@@ -519,10 +519,13 @@ void EuchreState::InformationStateTensor(Player player,
   for (int i = 0; i < 2 * kNumPlayers - num_passes_ - 1; ++i)
     ptr += (kNumSuits + 1);
   // Go alone
-  if (declarer_go_alone_) ptr[0] = 1;
-  if (lone_defender_ == first_defender_) ptr[1] = 1;
-  if (lone_defender_ == second_defender_) ptr[2] = 1;
-  ptr += 3;
+  if (declarer_go_alone_.value_or(false)) ptr[0] = 1;
+  if (lone_defender_ != kInvalidPlayer) {
+    if (lone_defender_ == first_defender_) ptr[1] = 1;
+    if (lone_defender_ == second_defender_) ptr[2] = 1;
+  }
+  if (declarer_go_alone_.has_value()) ptr[3] = 1;
+  ptr += 4;
   // Current hand
   for (int i = 0; i < kNumCards; ++i)
     if (holder_[i] == player) ptr[i] = 1;

@@ -73,7 +73,7 @@ inline constexpr int kInformationStateTensorSize =
     kNumPlayers                       // Dealer
     + kNumCards                       // Upcard
     + (kNumSuits + 1) * kMaxBids      // Bidding
-    + 3                               // Go alone (declarer, defender 1 & 2)
+    + 4                               // Go alone flags + decision status
     + kNumCards                       // Current hand
     + kNumTricks * kTrickTensorSize;  // History of tricks
 inline constexpr int kFullGameInformationStateTensorSize =
