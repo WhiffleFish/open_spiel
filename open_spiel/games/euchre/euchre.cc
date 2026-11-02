@@ -974,36 +974,30 @@ void Trick::Play(Player player, int card) {
   }
 }
 
-// Generates a new state consistent with player_id's information set by
-// preserving known cards (own hand, played cards) and reshuffling unknown
-// cards among opponents, respecting void-suit constraints inferred from play.
+// Samples a full state uniformly from the worlds consistent with player_id's
+// information set (ignoring the other players' policies).
+//
+// From player_id's point of view, the following is public or private-known and
+// is kept fixed: the dealer, player_id's own dealt cards (including its own
+// discard if it is the dealer), the upcard, the bidding/go-alone actions and
+// every card played so far (together with who played it). The unknown cards
+// are the unplayed cards in the other players' hands, the three undealt kitty
+// cards and, when player_id is not the dealer, the dealer's discard. These are
+// pooled and redistributed among bins: one per hidden player (sized by how
+// many unplayed cards that player holds, excluding a picked-up upcard, which is
+// public), one for the dealer's discard and one for the kitty. A hidden player
+// may not receive a card of a suit (using effective suits, so the left bower
+// counts as trump) that they have shown to be void in by failing to follow
+// suit. Sampling is done by rejection over uniform shuffles of the pool, with a
+// randomized backtracking search as a fallback when the void constraints make
+// rejection impractically slow.
 std::unique_ptr<State> EuchreState::ResampleFromInfostate(
     int player_id, std::function<double()> rng) const {
   SPIEL_CHECK_TRUE(phase_ == Phase::kBidding || phase_ == Phase::kDiscard ||
                    phase_ == Phase::kGoAlone || phase_ == Phase::kPlay ||
                    phase_ == Phase::kGameOver);
-
-  std::unique_ptr<State> clone = game_->NewInitialState();
-
-  // Dealer selection is public.
-  clone->ApplyAction(dealer_);
-
-  // Classify each dealt card as "known" or "shuffleable".
-  // A card's holder is known if: (a) it belongs to player_id (own hand), or
-  // (b) it has been played (holder_ is nullopt, so its original holder is
-  // public knowledge from the trick history).
-  // All other cards (unplayed cards in opponents' hands) are shuffleable.
-  std::vector<std::vector<int>> known(kNumPlayers);
-  std::vector<int> shuffleable;
-  for (int card = 0; card < kNumCards; ++card) {
-    absl::optional<Player> p = initial_deal_[card];
-    if (!p.has_value()) continue;  // Not dealt (kitty, excluding upcard).
-    if (*p == player_id || !holder_[card].has_value()) {
-      known[*p].push_back(card);
-    } else {
-      shuffleable.push_back(card);
-    }
-  }
+  SPIEL_CHECK_GE(player_id, 0);
+  SPIEL_CHECK_LT(player_id, kNumPlayers);
 
   // Detect void suits: scan trick history to find players who didn't follow
   // the led suit. Uses CardSuit(card, trump_suit_) to correctly treat the
@@ -1037,96 +1031,142 @@ std::unique_ptr<State> EuchreState::ResampleFromInfostate(
     }
   }
 
-  // Determine how many unknown cards each opponent still needs.
-  std::array<int, kNumPlayers> cards_needed{};
-  std::vector<Player> hidden_players;
-  for (int p = 0; p < kNumPlayers; ++p) {
-    if (p == player_id) continue;
-    int total_cards = kNumTricks;
-    cards_needed[p] = total_cards - static_cast<int>(known[p].size());
-    if (cards_needed[p] > 0) {
-      hidden_players.push_back(p);
+  // The dealer's discard is private to the dealer.
+  const bool hidden_discard =
+      discard_ != kInvalidAction && player_id != dealer_;
+
+  // Cards whose location is known to player_id: its own dealt cards, the
+  // upcard, and cards played by other players (with the player who played
+  // them). Everything else goes into the pool of unknown cards.
+  std::vector<std::vector<int>> player_cards(kNumPlayers);
+  std::array<bool, kNumCards> in_pool{};
+  in_pool.fill(true);
+  in_pool[upcard_] = false;
+  for (int card = 0; card < kNumCards; ++card) {
+    absl::optional<Player> p = initial_deal_[card];
+    if (!p.has_value()) continue;  // Upcard or kitty.
+    if (*p == player_id ||
+        (!holder_[card].has_value() && card != discard_)) {
+      player_cards[*p].push_back(card);
+      in_pool[card] = false;
     }
   }
+  std::vector<int> pool;
+  for (int card = 0; card < kNumCards; ++card) {
+    if (in_pool[card]) pool.push_back(card);
+  }
+
+  // Bins to fill from the pool, in order: hidden players' unplayed cards,
+  // the dealer's discard (if hidden) and the kitty.
+  struct Bin {
+    Player owner;  // kInvalidPlayer for the discard and kitty bins.
+    int capacity;
+  };
+  std::vector<Bin> bins;
+  for (Player p = 0; p < kNumPlayers; ++p) {
+    if (p == player_id) continue;
+    int hidden_count = 0;
+    for (int card = 0; card < kNumCards; ++card) {
+      if (holder_[card] == p) ++hidden_count;
+    }
+    if (p == dealer_ && holder_[upcard_] == p) --hidden_count;
+    if (hidden_count > 0) bins.push_back({p, hidden_count});
+  }
+  const int discard_bin = hidden_discard ? bins.size() : -1;
+  if (hidden_discard) bins.push_back({kInvalidPlayer, 1});
+  bins.push_back({kInvalidPlayer, kNumCards - kNumPlayers * kNumTricks - 1});
+  const int num_bins = bins.size();
+  const int pool_size = pool.size();
+
+  int total_capacity = 0;
+  for (const Bin& bin : bins) total_capacity += bin.capacity;
+  SPIEL_CHECK_EQ(pool_size, total_capacity);
+
+  auto allowed = [&](int card, int bin) {
+    Player owner = bins[bin].owner;
+    if (owner == kInvalidPlayer || trump_suit_ == Suit::kInvalidSuit) {
+      return true;
+    }
+    return !void_in[owner][static_cast<int>(CardSuit(card, trump_suit_))];
+  };
 
   std::mt19937 shuffle_rng(rng() * std::mt19937::max());
 
-  // Start with known cards, then distribute shuffleable cards below.
-  std::vector<std::vector<int>> player_cards(kNumPlayers);
-  for (int p = 0; p < kNumPlayers; ++p) {
-    player_cards[p] = known[p];
+  // bin_of[i] is the bin assigned to pool[i].
+  std::vector<int> bin_of;
+  bin_of.reserve(pool_size);
+  for (int b = 0; b < num_bins; ++b) {
+    bin_of.insert(bin_of.end(), bins[b].capacity, b);
   }
 
-  // Distribute shuffleable cards among hidden players, respecting voids.
-  // 2 hidden players: partition into only_a / only_b / either buckets.
-  if (hidden_players.size() == 2 && trump_suit_ != Suit::kInvalidSuit) {
-    Player a = hidden_players[0];
-    Player b = hidden_players[1];
-    std::vector<int> only_a, only_b, either;
-    for (int card : shuffleable) {
-      int suit = static_cast<int>(CardSuit(card, trump_suit_));
-      bool a_ok = !void_in[a][suit];
-      bool b_ok = !void_in[b][suit];
-      if (a_ok && !b_ok)
-        only_a.push_back(card);
-      else if (b_ok && !a_ok)
-        only_b.push_back(card);
-      else
-        either.push_back(card);
-    }
-    std::shuffle(either.begin(), either.end(), shuffle_rng);
-    for (int card : only_a) player_cards[a].push_back(card);
-    for (int card : only_b) player_cards[b].push_back(card);
-    int a_need = cards_needed[a] - static_cast<int>(only_a.size());
-    for (int i = 0; i < a_need; ++i) player_cards[a].push_back(either[i]);
-    for (int i = a_need; i < static_cast<int>(either.size()); ++i)
-      player_cards[b].push_back(either[i]);
-    // 3 hidden players: force-assign cards that only one player can hold,
-    // then randomly distribute the remainder.
-  } else if (hidden_players.size() == 3 && trump_suit_ != Suit::kInvalidSuit) {
-    Player a = hidden_players[0];
-    Player b = hidden_players[1];
-    Player c = hidden_players[2];
-    std::vector<int> remaining;
-    for (int card : shuffleable) {
-      int suit = static_cast<int>(CardSuit(card, trump_suit_));
-      bool a_ok = !void_in[a][suit];
-      bool b_ok = !void_in[b][suit];
-      bool c_ok = !void_in[c][suit];
-      int count = a_ok + b_ok + c_ok;
-      if (count == 1) {
-        if (a_ok)
-          player_cards[a].push_back(card);
-        else if (b_ok)
-          player_cards[b].push_back(card);
-        else
-          player_cards[c].push_back(card);
-      } else {
-        remaining.push_back(card);
-      }
-    }
-    std::shuffle(remaining.begin(), remaining.end(), shuffle_rng);
-    int idx = 0;
-    for (Player p : hidden_players) {
-      int need = cards_needed[p] - (static_cast<int>(player_cards[p].size()) -
-                                    static_cast<int>(known[p].size()));
-      for (int j = 0; j < need; ++j) {
-        player_cards[p].push_back(remaining[idx++]);
-      }
-    }
-    // Fallback: no void info available (e.g. bidding phase), uniform shuffle.
-  } else {
-    std::shuffle(shuffleable.begin(), shuffleable.end(), shuffle_rng);
-    int idx = 0;
-    for (Player p : hidden_players) {
-      for (int j = 0; j < cards_needed[p]; ++j) {
-        player_cards[p].push_back(shuffleable[idx++]);
+  // Rejection sampling: uniform over all consistent assignments.
+  constexpr int kMaxRejectionAttempts = 1000;
+  bool found = false;
+  for (int attempt = 0; attempt < kMaxRejectionAttempts && !found; ++attempt) {
+    std::shuffle(pool.begin(), pool.end(), shuffle_rng);
+    found = true;
+    for (int i = 0; i < pool_size; ++i) {
+      if (!allowed(pool[i], bin_of[i])) {
+        found = false;
+        break;
       }
     }
   }
 
-  // Deal the reshuffled cards to the clone state in the same order as the
-  // original (dealer+0, dealer+1, ..., round-robin for kNumTricks rounds).
+  // Fallback: randomized backtracking search, most-constrained cards first.
+  // A solution always exists since the true state is consistent.
+  if (!found) {
+    std::shuffle(pool.begin(), pool.end(), shuffle_rng);
+    std::vector<int> num_allowed(kNumCards, 0);
+    for (int card : pool) {
+      for (int b = 0; b < num_bins; ++b) num_allowed[card] += allowed(card, b);
+    }
+    std::stable_sort(pool.begin(), pool.end(), [&](int a, int b) {
+      return num_allowed[a] < num_allowed[b];
+    });
+    std::vector<int> remaining(num_bins);
+    for (int b = 0; b < num_bins; ++b) remaining[b] = bins[b].capacity;
+    std::function<bool(int)> assign = [&](int i) -> bool {
+      if (i == pool_size) return true;
+      std::vector<int> candidates;
+      for (int b = 0; b < num_bins; ++b) {
+        if (remaining[b] > 0 && allowed(pool[i], b)) candidates.push_back(b);
+      }
+      std::shuffle(candidates.begin(), candidates.end(), shuffle_rng);
+      for (int b : candidates) {
+        --remaining[b];
+        bin_of[i] = b;
+        if (assign(i + 1)) return true;
+        ++remaining[b];
+      }
+      return false;
+    };
+    found = assign(0);
+  }
+  SPIEL_CHECK_TRUE(found);
+
+  int sampled_discard = discard_;
+  for (int i = 0; i < pool_size; ++i) {
+    int b = bin_of[i];
+    if (bins[b].owner != kInvalidPlayer) {
+      player_cards[bins[b].owner].push_back(pool[i]);
+    } else if (b == discard_bin) {
+      sampled_discard = pool[i];
+      player_cards[dealer_].push_back(pool[i]);
+    }
+    // Otherwise the card is in the kitty and is simply never dealt.
+  }
+  for (Player p = 0; p < kNumPlayers; ++p) {
+    SPIEL_CHECK_EQ(player_cards[p].size(), kNumTricks);
+  }
+
+  std::unique_ptr<State> clone = game_->NewInitialState();
+  const EuchreState* clone_state = static_cast<EuchreState*>(clone.get());
+
+  // Dealer selection is public.
+  clone->ApplyAction(dealer_);
+
+  // Deal the sampled hands in the same round-robin order as the original.
   for (int i = 0; i < kNumPlayers * kNumTricks; ++i) {
     Player deal_to = (dealer_ + i) % kNumPlayers;
     clone->ApplyAction(player_cards[deal_to].back());
@@ -1136,11 +1176,16 @@ std::unique_ptr<State> EuchreState::ResampleFromInfostate(
   // Deal the same upcard (public knowledge).
   clone->ApplyAction(upcard_);
 
-  // Replay all post-deal actions (bidding, discard, go-alone, play) verbatim
-  // from the original history — these are all public actions.
+  // Replay all post-deal actions (bidding, discard, go-alone, play) from the
+  // original history, substituting the sampled discard if it is hidden.
   int post_deal_start = 1 + kNumPlayers * kNumTricks + 1;
-  for (size_t i = post_deal_start; i < history_.size(); i++) {
-    clone->ApplyAction(history_.at(i).action);
+  for (size_t i = post_deal_start; i < history_.size(); ++i) {
+    Action action = history_[i].action;
+    if (hidden_discard && clone_state->CurrentPhase() == Phase::kDiscard) {
+      SPIEL_CHECK_EQ(action, discard_);
+      action = sampled_discard;
+    }
+    clone->ApplyAction(action);
   }
 
   SPIEL_CHECK_EQ(History().size(), clone->History().size());
