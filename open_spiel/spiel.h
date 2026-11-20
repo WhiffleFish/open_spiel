@@ -630,6 +630,25 @@ class State {
   virtual void InformationStateTensor(Player player,
                                       std::vector<float>* values) const;
 
+  // Full-information (privileged) tensor of the current history, seen from
+  // `player`'s seat. Unlike the information state, it may reveal information
+  // that is private to other players (e.g. every player's hand), so it must
+  // never be given to a policy. It exists for training-time inputs such as a
+  // full-information critic. The size must match Game::HistoryTensorShape()
+  // and the layout is game-specific.
+  //
+  // Implementations should start with:
+  //   SPIEL_CHECK_GE(player, 0);
+  //   SPIEL_CHECK_LT(player, num_players_);
+  virtual void HistoryTensor(Player player, absl::Span<float> values) const {
+    SpielFatalError("HistoryTensor unimplemented!");
+  }
+  std::vector<float> HistoryTensor(Player player) const;
+  std::vector<float> HistoryTensor() const {
+    return HistoryTensor(CurrentPlayer());
+  }
+  void HistoryTensor(Player player, std::vector<float>* values) const;
+
   // We have functions for observations which are parallel to those for
   // information states. An observation should have the following properties:
   //  - It has at most the same information content as the information state
@@ -981,6 +1000,19 @@ class Game : public std::enable_shared_from_this<Game> {
   // format.
   int InformationStateTensorSize() const {
     std::vector<int> shape = InformationStateTensorShape();
+    return shape.empty() ? 0
+                         : absl::c_accumulate(shape, 1, std::multiplies<int>());
+  }
+
+  // Describes the structure of State::HistoryTensor, the full-information
+  // tensor of the history (see that function for details).
+  virtual std::vector<int> HistoryTensorShape() const {
+    SpielFatalError("HistoryTensorShape unimplemented.");
+  }
+
+  // The size of the (flat) vector needed for the history tensor.
+  int HistoryTensorSize() const {
+    std::vector<int> shape = HistoryTensorShape();
     return shape.empty() ? 0
                          : absl::c_accumulate(shape, 1, std::multiplies<int>());
   }

@@ -575,6 +575,25 @@ void EuchreState::InformationStateTensor(Player player,
   SPIEL_CHECK_EQ(ptr, values.end());
 }
 
+void EuchreState::HistoryTensor(Player player,
+                                absl::Span<float> values) const {
+  SPIEL_CHECK_GE(player, 0);
+  SPIEL_CHECK_LT(player, num_players_);
+  SPIEL_CHECK_EQ(values.size(), kHistoryTensorSize);
+  InformationStateTensor(player, values.subspan(0, kInformationStateTensorSize));
+  std::fill(values.begin() + kInformationStateTensorSize, values.end(), 0.0);
+  auto ptr = values.begin() + kInformationStateTensorSize;
+  // Like the information state's own hand, hands are only encoded once the
+  // upcard is dealt.
+  if (upcard_ != kInvalidAction) {
+    for (int i = 0; i < kNumCards; ++i) {
+      if (holder_[i].has_value()) ptr[*holder_[i] * kNumCards + i] = 1;
+    }
+  }
+  ptr += kNumPlayers * kNumCards;
+  ptr[player] = 1;
+}
+
 std::vector<Action> EuchreState::LegalActions() const {
   switch (phase_) {
     case Phase::kDealerSelection:

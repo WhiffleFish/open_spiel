@@ -943,6 +943,19 @@ void State::InformationStateTensor(Player player,
   InformationStateTensor(player, absl::MakeSpan(*values));
 }
 
+std::vector<float> State::HistoryTensor(Player player) const {
+  SPIEL_CHECK_GE(player, 0);
+  SPIEL_CHECK_LT(player, num_players_);
+  std::vector<float> history(game_->HistoryTensorSize());
+  HistoryTensor(player, absl::MakeSpan(history));
+  return history;
+}
+
+void State::HistoryTensor(Player player, std::vector<float>* values) const {
+  values->resize(game_->HistoryTensorSize());
+  HistoryTensor(player, absl::MakeSpan(*values));
+}
+
 bool State::IsInitialNonChanceState() const {
   if (IsChanceNode()) {
     return false;

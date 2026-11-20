@@ -415,6 +415,21 @@ PYBIND11_MODULE(pyspiel, m) {
                State::InformationStateTensor)
       .def("information_state_tensor", (std::vector<float>(State::*)() const) &
                                            State::InformationStateTensor)
+      // Unlike information_state_tensor (a list), this returns a float32
+      // numpy array written in place: it is called every environment step,
+      // and building and converting a Python list dominated its cost.
+      .def(
+          "history_tensor",
+          [](const State& state, Player player) {
+            SPIEL_CHECK_GE(player, 0);
+            SPIEL_CHECK_LT(player, state.NumPlayers());
+            py::array_t<float> values(state.GetGame()->HistoryTensorSize());
+            absl::Span<float> span(values.mutable_data(), values.size());
+            std::fill(span.begin(), span.end(), 0.0f);
+            state.HistoryTensor(player, span);
+            return values;
+          },
+          py::arg("player"))
       .def("observation_string",
            (std::string(State::*)(int) const) & State::ObservationString)
       .def("observation_string",
@@ -486,6 +501,8 @@ PYBIND11_MODULE(pyspiel, m) {
       .def("information_state_tensor_layout",
            &Game::InformationStateTensorLayout)
       .def("information_state_tensor_size", &Game::InformationStateTensorSize)
+      .def("history_tensor_shape", &Game::HistoryTensorShape)
+      .def("history_tensor_size", &Game::HistoryTensorSize)
       .def("observation_tensor_shape", &Game::ObservationTensorShape)
       .def("observation_tensor_layout", &Game::ObservationTensorLayout)
       .def("observation_tensor_size", &Game::ObservationTensorSize)

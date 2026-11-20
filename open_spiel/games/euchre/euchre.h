@@ -80,6 +80,14 @@ inline constexpr int kFullGameInformationStateTensorSize =
     2 * (kFullGameMaxScore + 1)       // N/S score, E/W score
     + kMaxFullGameHands               // Current hand number
     + kInformationStateTensorSize;    // Current hand state
+// Full-information tensor from one seat's perspective (State::HistoryTensor):
+// that seat's information state, then every seat's current hand (absolute
+// seat order N E S W), then a one-hot of the perspective seat. Training-only:
+// it reveals the other players' hands.
+inline constexpr int kHistoryTensorSize =
+    kInformationStateTensorSize       // Perspective seat's information state
+    + kNumPlayers * kNumCards         // Every seat's current hand
+    + kNumPlayers;                    // Perspective seat
 
 enum class Phase { kDealerSelection, kDeal, kBidding, kDiscard, kGoAlone, kPlay,
                    kGameOver };
@@ -144,6 +152,7 @@ class EuchreState : public State {
   std::vector<double> Returns() const override { return points_; }
   void InformationStateTensor(Player player,
                               absl::Span<float> values) const override;
+  void HistoryTensor(Player player, absl::Span<float> values) const override;
   std::unique_ptr<State> Clone() const override {
     return std::unique_ptr<State>(new EuchreState(*this));
   }
@@ -255,6 +264,9 @@ class EuchreGame : public Game {
   absl::optional<double> UtilitySum() const override { return 0; }
   std::vector<int> InformationStateTensorShape() const override {
     return {kInformationStateTensorSize};
+  }
+  std::vector<int> HistoryTensorShape() const override {
+    return {kHistoryTensorSize};
   }
   int MaxGameLength() const override {
     return 1 +                         // Dealer selection
