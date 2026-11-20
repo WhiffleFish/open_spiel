@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/types/span.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/games/tic_tac_toe/tic_tac_toe.h"
 #include "open_spiel/spiel.h"
@@ -91,8 +91,11 @@ class UltimateTTTGame : public Game {
   absl::optional<double> UtilitySum() const override { return 0; }
   double MaxUtility() const override { return 1; }
   std::vector<int> ObservationTensorShape() const override {
-    return {tic_tac_toe::kCellStates, tic_tac_toe::kNumCells,
-            tic_tac_toe::kNumRows, tic_tac_toe::kNumCols};
+    // 3 * 9 * 9 (board planes) + 1 (current player) + 10 (forced board
+    // one-hot).
+    return {tic_tac_toe::kCellStates * tic_tac_toe::kNumCells *
+                tic_tac_toe::kNumCells +
+            1 + tic_tac_toe::kNumCells + 1};
   }
   int MaxGameLength() const override {
     return ttt_game_->MaxGameLength() * kNumSubgames * 2;

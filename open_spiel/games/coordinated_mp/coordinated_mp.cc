@@ -19,7 +19,7 @@
 #include <string>
 #include <utility>
 
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
+#include "absl/strings/str_cat.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/observer.h"
 #include "open_spiel/spiel.h"
@@ -207,7 +207,7 @@ std::string PenniesState::ObservationString(Player player) const {
 }
 
 std::unique_ptr<State> PenniesState::Clone() const {
-  return absl::make_unique<PenniesState>(*this);
+  return std::make_unique<PenniesState>(*this);
 }
 
 std::vector<std::pair<Action, double>> PenniesState::ChanceOutcomes() const {
@@ -222,12 +222,12 @@ PenniesGame::PenniesGame(const GameParameters &params)
 }
 
 std::unique_ptr<State> PenniesGame::NewInitialState() const {
-  return absl::make_unique<PenniesState>(shared_from_this());
+  return std::make_unique<PenniesState>(shared_from_this());
 }
 
 std::shared_ptr<Observer> PenniesGame::MakeObserver(
-    absl::optional<IIGObservationType> iig_obs_type,
-    const GameParameters &params) const {
+    std::optional<IIGObservationType> iig_obs_type,
+    const GameParameters& params) const {
   SPIEL_CHECK_TRUE(params.empty());
   return std::make_shared<PenniesObserver>(
       iig_obs_type.value_or(kDefaultObsType));

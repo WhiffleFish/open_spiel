@@ -24,11 +24,11 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/container/btree_set.h"
-#include "open_spiel/abseil-cpp/absl/container/flat_hash_set.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_join.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/types/optional.h"
 #include "open_spiel/observer.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
@@ -193,7 +193,7 @@ void TestHistoryContainsActions(const Game& game,
 void CheckReturnsSum(const Game& game, const State& state) {
   std::vector<double> returns = state.Returns();
   double rsum = std::accumulate(returns.begin(), returns.end(), 0.0);
-  absl::optional<double> utility_sum = game.UtilitySum();
+  std::optional<double> utility_sum = game.UtilitySum();
 
   switch (game.GetType().utility) {
     case GameType::Utility::kZeroSum: {

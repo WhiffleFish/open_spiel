@@ -23,9 +23,9 @@
 #include <unordered_set>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
-#include "open_spiel/json/include/nlohmann/json.hpp"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
+#include "nlohmann/json.hpp"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/games/go/go_board.h"
 #include "open_spiel/spiel.h"
@@ -83,15 +83,7 @@ struct GoStateStruct : StateStruct {
   bool is_terminal;
   std::string winner;
 
-  GoStateStruct() = default;
-  explicit GoStateStruct(const std::string& json_str) {
-    nlohmann::json::parse(json_str).get_to(*this);
-  }
-
-  nlohmann::json to_json_base() const override {
-    return *this;
-  }
-  NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+  SPIEL_STRUCT_BOILERPLATE(
       GoStateStruct, board_size, komi, current_player, move_number,
       previous_move_a1, board_grid, is_terminal, winner);
 };

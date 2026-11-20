@@ -6,11 +6,16 @@ This directory contains two Euchre game registrations:
 - `euchre_full`: a full game of Euchre, played as repeated hands until one
   partnership reaches 10 points.
 
+The declarer decides whether to play alone before the dealer takes up the
+up-card. When the dealer's partner orders up and plays alone, the dealer sits
+out and neither takes the up-card nor discards. A euchre costs the makers 2
+points (4 against a lone defender); there is no super-euchre.
+
 ## Information State Tensor
 
 ### Single-hand `euchre`
 
-The `euchre` information state tensor has shape `[936]`. Its layout is:
+The `euchre` information state tensor has shape `[960]`. Its layout is:
 
 | Offset | Size | Field | Encoding |
 | --- | ---: | --- | --- |
@@ -18,8 +23,9 @@ The `euchre` information state tensor has shape `[936]`. Its layout is:
 | `4` | 24 | Upcard | One-hot over the 24-card Euchre deck. |
 | `28` | 40 | Bidding | Eight slots of five bits each. Each slot is `[Clubs, Diamonds, Hearts, Spades, Pass]`. |
 | `68` | 4 | Go-alone decisions | `[declarer_alone, first_defender_alone, second_defender_alone, declarer_decision_made]`. Defender bits are only used when lone defenders are enabled. The status bit distinguishes a pending decision from choosing to play with a partner. |
-| `72` | 24 | Current hand | One-hot over the observer's current cards. |
-| `96` | 840 | Trick history | Five trick records, each with seven 24-card lanes in `N E S W N E S` order. |
+| `72` | 24 | Dealer's discard | One-hot over the dealer's discarded card. Set only in the dealer's own tensor. |
+| `96` | 24 | Current hand | One-hot over the observer's current cards. |
+| `120` | 840 | Trick history | Five trick records, each with seven 24-card lanes in `N E S W N E S` order. |
 
 The current trick-history format uses seven lanes so a trick can be represented
 from any leader while preserving table order. Unplayed or not-yet-public fields
@@ -28,7 +34,7 @@ is all zeros.
 
 ### Full-game `euchre_full`
 
-The `euchre_full` information state tensor has shape `[983]`. It is the
+The `euchre_full` information state tensor has shape `[1007]`. It is the
 single-hand tensor with a 47-bit full-game prefix:
 
 | Offset | Size | Field | Encoding |
@@ -36,7 +42,7 @@ single-hand tensor with a 47-bit full-game prefix:
 | `0` | 14 | N/S score | One-hot score bucket `0..13`. |
 | `14` | 14 | E/W score | One-hot score bucket `0..13`. |
 | `28` | 19 | Current hand number | One-hot zero-based hand index `0..18`. |
-| `47` | 936 | Current hand state | The exact `euchre` information state tensor described above. |
+| `47` | 960 | Current hand state | The exact `euchre` information state tensor described above. |
 
 The score buckets go to 13 because a partnership can start a final hand at
 9 points and score up to 4 points. The hand-number field has 19 buckets because

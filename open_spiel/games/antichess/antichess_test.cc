@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "absl/types/optional.h"
 #include "open_spiel/games/chess/chess.h"
 #include "open_spiel/games/chess/chess_board.h"
 #include "open_spiel/spiel.h"
@@ -50,7 +50,7 @@ void BasicAntichessTests() {
 }
 
 void ApplySANMove(const char* move_san, AntichessState* state) {
-  absl::optional<Move> maybe_move = state->Board().ParseSANMove(move_san);
+  std::optional<Move> maybe_move = state->Board().ParseSANMove(move_san);
   SPIEL_CHECK_TRUE(maybe_move);
   state->ApplyAction(antichess::MoveToAction(*maybe_move));
 }

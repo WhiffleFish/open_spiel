@@ -14,11 +14,11 @@
 
 #include "open_spiel/games/battleship/battleship.h"
 
-#include "open_spiel/abseil-cpp/absl/strings/ascii.h"
-#include "open_spiel/abseil-cpp/absl/strings/numbers.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/strings/string_view.h"
-#include "open_spiel/abseil-cpp/absl/strings/strip.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
 
 namespace open_spiel {
 namespace battleship {
@@ -620,7 +620,7 @@ void BattleshipState::DoApplyAction(Action action_id) {
       std::count(legal_action_ids.begin(), legal_action_ids.end(), action_id),
       1);
 
-  const absl::variant<CellAndDirection, Shot> action =
+  const std::variant<CellAndDirection, Shot> action =
       bs_game_->DeserializeAction(action_id);
 
   if (absl::holds_alternative<CellAndDirection>(action)) {
@@ -957,11 +957,11 @@ double BattleshipGame::MaxUtility() const {
   return max_utility;
 }
 
-absl::optional<double> BattleshipGame::UtilitySum() const {
+std::optional<double> BattleshipGame::UtilitySum() const {
   if (std::abs(conf.loss_multiplier - 1.0) < kFloatTolerance) {
     return 0.0;
   } else {
-    return absl::nullopt;
+    return std::nullopt;
   }
 }
 
@@ -999,7 +999,7 @@ std::string BattleshipGame::ActionToString(Player player,
                                            Action action_id) const {
   SPIEL_DCHECK_TRUE(player == Player{0} || player == Player{1});
 
-  const absl::variant<CellAndDirection, Shot> action =
+  const std::variant<CellAndDirection, Shot> action =
       DeserializeAction(action_id);
 
   if (absl::holds_alternative<Shot>(action)) {
@@ -1053,7 +1053,7 @@ Action BattleshipGame::SerializeShotAction(const Shot& shot) const {
   return shot.row * conf.board_width + shot.col;
 }
 
-absl::variant<CellAndDirection, Shot> BattleshipGame::DeserializeAction(
+std::variant<CellAndDirection, Shot> BattleshipGame::DeserializeAction(
     const Action action_id) const {
   SPIEL_CHECK_GE(action_id, 0);
   SPIEL_CHECK_LT(action_id, NumDistinctActions());

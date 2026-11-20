@@ -25,15 +25,15 @@
 #include <vector>
 
 #include "open_spiel/games/universal_poker/acpc/project_acpc_server/game.h"
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/container/flat_hash_set.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "open_spiel/games/universal_poker/acpc_cpp/acpc_game.h"
 #include "open_spiel/games/universal_poker/logic/card_set.h"
 #include "open_spiel/policy.h"
 #include "open_spiel/game_parameters.h"
-#include "open_spiel/json/include/nlohmann/json.hpp"
+#include "nlohmann/json.hpp"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
 
@@ -86,15 +86,7 @@ struct UniversalPokerStateStruct : StateStruct {
   std::vector<std::string> best_five_card_hands;
   std::vector<double> odds;
 
-  UniversalPokerStateStruct() = default;
-  explicit UniversalPokerStateStruct(const std::string& json_str) {
-    nlohmann::json::parse(json_str).get_to(*this);
-  }
-
-  nlohmann::json to_json_base() const override {
-    return *this;
-  }
-  NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+  SPIEL_STRUCT_BOILERPLATE(
       UniversalPokerStateStruct, acpc_state, current_player, blinds,
       betting_history, player_contributions, pot_size, starting_stacks,
       player_hands, board_cards, best_hand_rank_types,

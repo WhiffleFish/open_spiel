@@ -14,14 +14,13 @@
 
 #include "open_spiel/utils/file.h"
 
-#include <cstdlib>
 #include <ctime>
 #include <random>
 #include <string>
 #include <utility>
 
 
-#include "open_spiel/abseil-cpp/absl/random/distributions.h"
+#include "absl/random/distributions.h"
 #include "open_spiel/spiel_utils.h"
 
 constexpr int kMaxNumAttempts = 100;

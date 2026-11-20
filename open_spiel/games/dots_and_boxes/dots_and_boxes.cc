@@ -22,9 +22,9 @@
 #include <string>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/strings/str_cat.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
@@ -659,9 +659,7 @@ double DotsAndBoxesGame::MinUtility() const {
   }
 }
 
-absl::optional<double> DotsAndBoxesGame::UtilitySum() const {
-  return 0;
-}
+std::optional<double> DotsAndBoxesGame::UtilitySum() const { return 0; }
 
 double DotsAndBoxesGame::MaxUtility() const {
   if (utility_margin_) {

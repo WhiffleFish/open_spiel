@@ -46,10 +46,10 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/strings/string_view.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
-#include "open_spiel/json/include/nlohmann/json.hpp"
+#include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
+#include "nlohmann/json.hpp"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
@@ -128,29 +128,16 @@ struct HeartsStructContents {
                                  hearts_broken);
 };
 
-struct HeartsStateStruct : StateStruct, HeartsStructContents {
-  HeartsStateStruct() = default;
-  explicit HeartsStateStruct(const std::string& json_str) {
-    nlohmann::json::parse(json_str).get_to(*this);
-  }
+SPIEL_DEFINE_STRUCT(HeartsStateStruct, StateStruct, HeartsStructContents);
 
-  nlohmann::json to_json_base() const override { return *this; }
-};
-
-struct HeartsObservationStruct : ObservationStruct, HeartsStructContents {
-  HeartsObservationStruct() = default;
-  explicit HeartsObservationStruct(const std::string& json_str) {
-    nlohmann::json data = nlohmann::json::parse(json_str);
-    data.get_to(static_cast<HeartsStructContents&>(*this));
-    observing_player = data.value("observing_player", -1);
-  }
-  nlohmann::json to_json_base() const override {
-    nlohmann::json j = static_cast<const HeartsStructContents&>(*this);
-    j["observing_player"] = observing_player;
-    return j;
-  }
+struct HeartsObservationExtras {
   int observing_player = -1;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
+      HeartsObservationExtras, observing_player);
 };
+
+SPIEL_DEFINE_STRUCT_WITH_EXTRAS(HeartsObservationStruct, ObservationStruct,
+                                HeartsStructContents, HeartsObservationExtras);
 
 // State of a single trick.
 class Trick {
@@ -226,6 +213,11 @@ class HeartsState : public State {
   void ApplyPlayAction(int card);
 
   void ComputeScore();
+  // Cards are not received until all players have completed passing. West is
+  // the last player to pass.
+  bool PassingComplete() const {
+    return passed_cards_[static_cast<int>(kWest)].size() == kNumCardsInPass;
+  }
   int CurrentTrickIndex() const {
     return std::min(num_cards_played_ / kNumPlayers,
                     static_cast<int>(tricks_.size()));

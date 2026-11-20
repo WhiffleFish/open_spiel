@@ -18,8 +18,9 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
-#include "open_spiel/abseil-cpp/absl/strings/string_view.h"
+#include "absl/strings/string_view.h"
 
 namespace open_spiel::file {
 
@@ -73,6 +74,10 @@ std::string RealPath(const std::string& path);  // Get the canonical file path.
 
 std::string GetEnv(const std::string& key, const std::string& default_value);
 std::string GetTmpDir();
+
+std::vector<std::string> ListDir(
+    const std::string& prefix_path,
+    bool recrusive = false);
 
 }  // namespace open_spiel::file
 

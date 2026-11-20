@@ -20,10 +20,10 @@
 #include <string>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/random/uniform_int_distribution.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/random/uniform_int_distribution.h"
+#include "absl/strings/str_split.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "open_spiel/games/chess/chess_board.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
@@ -63,7 +63,7 @@ void CheckUndo(const char* fen, const char* move_san, const char* fen_after) {
   std::shared_ptr<const Game> game = LoadGame("chess");
   ChessState state(game, fen);
   Player player = state.CurrentPlayer();
-  absl::optional<Move> maybe_move = state.Board().ParseSANMove(move_san);
+  std::optional<Move> maybe_move = state.Board().ParseSANMove(move_san);
   SPIEL_CHECK_TRUE(maybe_move);
   Action action = MoveToAction(*maybe_move, state.BoardSize());
   state.ApplyAction(action);
@@ -73,7 +73,7 @@ void CheckUndo(const char* fen, const char* move_san, const char* fen_after) {
 }
 
 void ApplySANMove(const char* move_san, ChessState* state) {
-  absl::optional<Move> maybe_move = state->Board().ParseSANMove(move_san);
+  std::optional<Move> maybe_move = state->Board().ParseSANMove(move_san);
   SPIEL_CHECK_TRUE(maybe_move);
   state->ApplyAction(MoveToAction(*maybe_move, state->BoardSize()));
 }

@@ -19,7 +19,7 @@
 #include <string>
 #include <utility>
 
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
+#include "absl/strings/str_cat.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/observer.h"
 #include "open_spiel/policy.h"
@@ -426,7 +426,7 @@ double KuhnGame::MinUtility() const {
 }
 
 std::shared_ptr<Observer> KuhnGame::MakeObserver(
-    absl::optional<IIGObservationType> iig_obs_type,
+    std::optional<IIGObservationType> iig_obs_type,
     const GameParameters& params) const {
   if (params.empty()) {
     return std::make_shared<KuhnObserver>(

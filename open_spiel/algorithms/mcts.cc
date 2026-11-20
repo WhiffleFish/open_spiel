@@ -21,12 +21,12 @@
 #include <random>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/random/distributions.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_format.h"
-#include "open_spiel/abseil-cpp/absl/time/clock.h"
-#include "open_spiel/abseil-cpp/absl/time/time.h"
+#include "absl/algorithm/container.h"
+#include "absl/random/distributions.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
 #include "open_spiel/spiel_utils.h"
@@ -207,9 +207,10 @@ MCTSBot::MCTSBot(const Game& game, std::shared_ptr<Evaluator> evaluator,
                  bool solve, int seed, bool verbose,
                  ChildSelectionPolicy child_selection_policy,
                  double dirichlet_alpha, double dirichlet_epsilon,
-                 bool dont_return_chance_node)
+                 bool dont_return_chance_node, double max_wall_clock_time)
     : uct_c_{uct_c},
       max_simulations_{max_simulations},
+      max_wall_clock_time_{max_wall_clock_time},
       max_nodes_((max_memory_mb << 20) / sizeof(SearchNode) + 1),
       nodes_(0),
       gc_limit_(MIN_GC_LIMIT),
@@ -357,7 +358,12 @@ std::unique_ptr<SearchNode> MCTSBot::MCTSearch(const State& state) {
   std::vector<SearchNode*> visit_path;
   std::vector<double> returns;
   visit_path.reserve(64);
-  for (int i = 0; i < max_simulations_; ++i) {
+  absl::Time start_time = absl::Now();
+  for (int i = 0; (max_wall_clock_time_ > 0
+                       ? absl::ToDoubleSeconds(absl::Now() - start_time) <
+                             max_wall_clock_time_
+                       : i < max_simulations_);
+       ++i) {
     visit_path.clear();
     returns.clear();
 

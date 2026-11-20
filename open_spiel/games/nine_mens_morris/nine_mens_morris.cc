@@ -19,8 +19,8 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
+#include "absl/algorithm/container.h"
+#include "absl/strings/str_cat.h"
 #include "open_spiel/spiel_utils.h"
 #include "open_spiel/utils/tensor_view.h"
 
@@ -194,7 +194,7 @@ void NineMensMorrisState::GetCurrentLegalActions() {
         if (player == current_player_) {
           for (int dir = 0; dir < 4; ++dir) {
             int np = kPointNeighbors[p][dir];
-            if (np > 0 && board_[np] == CellState::kEmpty) {
+            if (np >= 0 && board_[np] == CellState::kEmpty) {
               cur_legal_actions_.push_back(ToMoveAction(p, np));
             }
           }

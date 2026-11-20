@@ -25,6 +25,19 @@ import pyspiel
 
 _DATA_DIR = "open_spiel/integration_tests/playthroughs/"
 
+
+def _data_dir() -> str:
+  """Returns the playthroughs directory under $TEST_SRCDIR.
+
+  Bazel keeps the main repository's runfiles in a `_main` subdirectory.
+  """
+  test_srcdir = os.environ.get("TEST_SRCDIR", "")
+  path = os.path.join(test_srcdir, _DATA_DIR)
+  if not os.path.isdir(path):
+    path = os.path.join(test_srcdir, "_main", _DATA_DIR)
+  return path
+
+
 _OPTIONAL_GAMES = frozenset([
     "hanabi",
     "python_pokerkit_wrapper",
@@ -39,6 +52,11 @@ _AVAILABLE_GAMES = set(pyspiel.registered_names())
 # here if you can avoid it. Adding a playthrough is easy and very useful!
 # Run `generate_new_playthrough.sh $GAME` to add a playthrough.
 _MISSING_GAMES = set(["nfg_game", "efg_game", "restricted_nash_response"])
+
+# These games only support action structs and are not supported by the
+# playthroughs yet, so we exclude them from the test for now.
+_ACTION_STRUCT_ONLY_GAMES = set(["crossword"])
+
 
 # Regex to find the game name in a playthrough. This will return the name of the
 # transform for wrapped games, e.g. goofspiel --> turn_based_simultaneous_game
@@ -91,12 +109,11 @@ class PlaythroughTest(absltest.TestCase):
 
   def test_all_games_tested(self):
     """Verify that every game is present in the playthroughs."""
-    test_srcdir = os.environ.get("TEST_SRCDIR", "")
-    path = os.path.join(test_srcdir, _DATA_DIR)
+    path = _data_dir()
     basenames = set(os.listdir(path))
     missing_games = set(_AVAILABLE_GAMES) - set(_MISSING_GAMES) - set(
         _playthrough_match(os.path.join(path, basename), _SHORTNAME)[1]
-        for basename in basenames)
+        for basename in basenames) - set(_ACTION_STRUCT_ONLY_GAMES)
     self.assertEmpty(
         missing_games,
         msg="These games do not have playthroughs."
@@ -105,8 +122,7 @@ class PlaythroughTest(absltest.TestCase):
 
 def _add_tests():
   """Adds a test for each playthrough to the test class (above)."""
-  test_srcdir = os.environ.get("TEST_SRCDIR", "")
-  path = os.path.join(test_srcdir, _DATA_DIR)
+  path = _data_dir()
   basenames = sorted(os.listdir(path))
   if len(basenames) < 40:
     raise ValueError(f"Playthroughs are missing from {path}")

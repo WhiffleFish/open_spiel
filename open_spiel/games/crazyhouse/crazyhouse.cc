@@ -24,13 +24,13 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/strings/match.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_join.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/algorithm/container.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/games/chess/chess.h"
 #include "open_spiel/games/crazyhouse/crazyhouse_board.h"
@@ -158,7 +158,7 @@ ActionsAndProbs CrazyhouseState::ChanceOutcomes() const {
 
 Action CrazyhouseState::ParseMoveToAction(const std::string& move_str) const {
   bool chess960 = ParentGame()->IsChess960();
-  absl::optional<Move> move = Board().ParseMove(move_str, chess960);
+  std::optional<Move> move = Board().ParseMove(move_str, chess960);
   if (!move.has_value()) {
     return kInvalidAction;
   }
@@ -566,7 +566,7 @@ CrazyhouseState::ExtractFenAndMaybeMoves() const {
   return std::make_pair(initial_fen, move_lans);
 }
 
-absl::optional<std::vector<double>> CrazyhouseState::MaybeFinalReturns() const {
+std::optional<std::vector<double>> CrazyhouseState::MaybeFinalReturns() const {
   if (king_of_hill_) {
     auto next_to_play = ColorToPlayer(Board().ToPlay());
     auto just_played = OtherPlayer(next_to_play);
@@ -612,7 +612,7 @@ absl::optional<std::vector<double>> CrazyhouseState::MaybeFinalReturns() const {
     return std::vector<double>{DrawUtility(), DrawUtility()};
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 std::string CrazyhouseState::Serialize() const {

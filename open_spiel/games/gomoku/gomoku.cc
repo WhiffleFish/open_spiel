@@ -24,8 +24,8 @@
 #include <string>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/games/gomoku/gomoku_grid.h"
 #include "open_spiel/observer.h"
@@ -200,7 +200,7 @@ GomokuState::FindWinLineFromLastMove(Action last_move) const {
     }
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void GomokuState::CheckWinFromLastMove(Action last_move) {
@@ -332,7 +332,7 @@ std::vector<int> GomokuGame::ObservationTensorShape() const {
 }
 
 inline absl::optional<Player> StoneOwner(Stone stone) {
-  if (stone == Stone::kEmpty) return absl::nullopt;
+  if (stone == Stone::kEmpty) return std::nullopt;
   if (stone == Stone::kBlack) return static_cast<Player>(0);
   return static_cast<Player>(1);
 }

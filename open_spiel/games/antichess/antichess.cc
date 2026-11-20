@@ -25,13 +25,13 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/strings/match.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_join.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/algorithm/container.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/games/chess/chess.h"
 #include "open_spiel/games/chess/chess_common.h"
@@ -293,7 +293,7 @@ void AntichessState::MaybeGenerateLegalActions() const {
   if (cached_legal_actions_) return;
 
   // In Antichess, captures are mandatory
-  absl::optional<std::vector<Action>> capture_moves, non_capture_moves;
+  std::optional<std::vector<Action>> capture_moves, non_capture_moves;
   capture_moves.emplace();
   non_capture_moves.emplace();
 
@@ -423,7 +423,7 @@ AntichessState::ExtractFenAndMaybeMoves() const {
   return std::make_pair(initial_fen, move_lans);
 }
 
-absl::optional<std::vector<double>> AntichessState::MaybeFinalReturns() const {
+std::optional<std::vector<double>> AntichessState::MaybeFinalReturns() const {
   std::vector<double> returns(NumPlayers(), DrawUtility());
   if (IsRepetitionDraw()) return returns;
 
@@ -470,7 +470,7 @@ absl::optional<std::vector<double>> AntichessState::MaybeFinalReturns() const {
     return returns;
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 std::string AntichessState::Serialize() const {

@@ -18,10 +18,10 @@
 #include <array>
 #include <random>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/strings/charconv.h"
-#include "open_spiel/abseil-cpp/absl/strings/numbers.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
+#include "absl/algorithm/container.h"
+#include "absl/strings/charconv.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_split.h"
 #include "open_spiel/spiel_utils.h"
 #include "open_spiel/utils/serialization.h"
 
@@ -272,7 +272,7 @@ void CFRSolverBase::EvaluateAndUpdatePolicy() {
       ApplyRegretMatching();
     }
   } else {
-    ComputeCounterFactualRegret(*root_state_, absl::nullopt, root_reach_probs_,
+    ComputeCounterFactualRegret(*root_state_, std::nullopt, root_reach_probs_,
                                 nullptr);
     if (regret_matching_plus_) {
       ApplyRegretMatchingPlusReset();
@@ -329,7 +329,7 @@ static double CounterFactualReachProb(
 // Returns:
 //   The value of the state for each player (excluding the chance player).
 std::vector<double> CFRSolverBase::ComputeCounterFactualRegret(
-    const State& state, const absl::optional<int>& alternating_player,
+    const State& state, const std::optional<int>& alternating_player,
     const std::vector<double>& reach_probabilities,
     const std::vector<const Policy*>* policy_overrides) {
   if (state.IsTerminal()) {
@@ -441,7 +441,7 @@ void CFRSolverBase::GetInfoStatePolicyFromPolicy(
 // Returns:
 //   The value of the state for each player (excluding the chance player).
 std::vector<double> CFRSolverBase::ComputeCounterFactualRegretForActionProbs(
-    const State& state, const absl::optional<int>& alternating_player,
+    const State& state, const std::optional<int>& alternating_player,
     const std::vector<double>& reach_probabilities, const int current_player,
     const std::vector<double>& info_state_policy,
     const std::vector<Action>& legal_actions,

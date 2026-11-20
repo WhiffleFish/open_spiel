@@ -18,7 +18,7 @@
 #include <cmath>
 #include <ctime>
 
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
+#include "absl/strings/str_split.h"
 #include "open_spiel/spiel.h"
 
 namespace open_spiel {
@@ -337,7 +337,7 @@ std::vector<Action> TarokState::TakeSuitFromPlayerCardsInNegativeContracts(
     return {kPagatAction};
   }
 
-  absl::optional<Action> action_to_beat = ActionToBeatInNegativeContracts(suit);
+  std::optional<Action> action_to_beat = ActionToBeatInNegativeContracts(suit);
   std::vector<Action> actions;
 
   if (action_to_beat) {
@@ -372,7 +372,7 @@ std::vector<Action> TarokState::TakeSuitFromPlayerCardsInNegativeContracts(
     return actions;
 }
 
-absl::optional<Action> TarokState::ActionToBeatInNegativeContracts(
+std::optional<Action> TarokState::ActionToBeatInNegativeContracts(
     CardSuit suit) const {
   // there are two cases where no card has to be beaten; the player is following
   // a colour suit and there is already at least one tarok in trick_cards_ or

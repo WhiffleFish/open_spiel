@@ -22,10 +22,10 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_format.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/games/spades/spades_scoring.h"
 #include "open_spiel/observer.h"
@@ -516,7 +516,7 @@ void SpadesState::ApplyBiddingAction(int bid) {
 
 void SpadesState::ApplyPlayAction(int card) {
   SPIEL_CHECK_TRUE(holder_[card] == current_player_);
-  holder_[card] = absl::nullopt;
+  holder_[card] = std::nullopt;
   if (num_cards_played_ % kNumPlayers == 0) {
     CurrentTrick() = Trick(current_player_, card);
   } else {

@@ -14,7 +14,7 @@
 
 #include "open_spiel/games/checkers/checkers.h"
 
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "absl/types/optional.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/tests/basic_tests.h"
 
@@ -68,7 +68,7 @@ void BasicCheckersTests() {
       10);
 
   auto observer = LoadGame("checkers")
-                      ->MakeObserver(absl::nullopt,
+                      ->MakeObserver(std::nullopt,
                                      GameParametersFromString("single_tensor"));
   testing::RandomSimTestCustomObserver(*LoadGame("checkers"), observer);
 }

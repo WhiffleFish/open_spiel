@@ -22,13 +22,13 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/strings/match.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_join.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/algorithm/container.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/games/chess/chess_board.h"
 #include "open_spiel/games/chess/chess_common.h"
@@ -137,7 +137,7 @@ ActionsAndProbs ChessState::ChanceOutcomes() const {
 
 Action ChessState::ParseMoveToAction(const std::string& move_str) const {
   bool chess960 = ParentGame()->IsChess960();
-  absl::optional<Move> move = Board().ParseMove(move_str, chess960);
+  std::optional<Move> move = Board().ParseMove(move_str, chess960);
   if (!move.has_value()) {
     return kInvalidAction;
   }
@@ -497,7 +497,7 @@ ChessState::ExtractFenAndMaybeMoves() const {
   return std::make_pair(initial_fen, move_lans);
 }
 
-absl::optional<std::vector<double>> ChessState::MaybeFinalReturns() const {
+std::optional<std::vector<double>> ChessState::MaybeFinalReturns() const {
   if (!Board().HasSufficientMaterial()) {
     return std::vector<double>{DrawUtility(), DrawUtility()};
   }
@@ -530,7 +530,7 @@ absl::optional<std::vector<double>> ChessState::MaybeFinalReturns() const {
     return std::vector<double>{DrawUtility(), DrawUtility()};
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 std::string ChessState::Serialize() const {

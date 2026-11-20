@@ -18,10 +18,10 @@
 #include <cstdint>
 #include <string>
 
-#include "open_spiel/abseil-cpp/absl/strings/match.h"
-#include "open_spiel/abseil-cpp/absl/strings/numbers.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/string_view.h"
+#include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "open_spiel/spiel_utils.h"
 
 namespace open_spiel::json {
@@ -68,7 +68,7 @@ std::nullopt_t ParseError(absl::string_view error, absl::string_view str) {
                                    std::min(30, static_cast<int>(str.size()))));
 
   // TODO(author7): Maybe return a variant of error string or Value?
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 bool ConsumeToken(absl::string_view* str, absl::string_view token) {
@@ -80,15 +80,15 @@ bool ConsumeToken(absl::string_view* str, absl::string_view token) {
 }
 
 template <typename T>
-absl::optional<Value> ParseConstant(absl::string_view* str,
-                                    absl::string_view token, T value) {
+std::optional<Value> ParseConstant(absl::string_view* str,
+                                   absl::string_view token, T value) {
   if (ConsumeToken(str, token)) {
     return value;
   }
   return ParseError("Invalid constant: ", *str);
 }
 
-absl::optional<Value> ParseNumber(absl::string_view* str) {
+std::optional<Value> ParseNumber(absl::string_view* str) {
   size_t valid_double =
       std::min(str->find_first_not_of("-+.0123456789eE"), str->size());
   size_t valid_int =
@@ -107,7 +107,7 @@ absl::optional<Value> ParseNumber(absl::string_view* str) {
   return ParseError("Invalid number", *str);
 }
 
-absl::optional<std::string> ParseString(absl::string_view* str) {
+std::optional<std::string> ParseString(absl::string_view* str) {
   if (!ConsumeToken(str, "\"")) {
     return ParseError("Expected '\"'", *str);
   }
@@ -150,9 +150,9 @@ absl::optional<std::string> ParseString(absl::string_view* str) {
   return ParseError("Unfinished string", *str);
 }
 
-absl::optional<Value> ParseValue(absl::string_view* str);
+std::optional<Value> ParseValue(absl::string_view* str);
 
-absl::optional<Array> ParseArray(absl::string_view* str) {
+std::optional<Array> ParseArray(absl::string_view* str) {
   if (!ConsumeToken(str, "[")) {
     return ParseError("Expected '['", *str);
   }
@@ -168,16 +168,16 @@ absl::optional<Array> ParseArray(absl::string_view* str) {
     }
     first = false;
     ConsumeWhitespace(str);
-    absl::optional<Value> v = ParseValue(str);
+    std::optional<Value> v = ParseValue(str);
     if (!v) {
-      return absl::nullopt;
+      return std::nullopt;
     }
     out.push_back(*v);
   }
   return ParseError("Unfinished array", *str);
 }
 
-absl::optional<Object> ParseObject(absl::string_view* str) {
+std::optional<Object> ParseObject(absl::string_view* str) {
   if (!ConsumeToken(str, "{")) {
     return ParseError("Expected '{'", *str);
   }
@@ -193,25 +193,25 @@ absl::optional<Object> ParseObject(absl::string_view* str) {
     }
     first = false;
     ConsumeWhitespace(str);
-    absl::optional<std::string> key = ParseString(str);
+    std::optional<std::string> key = ParseString(str);
     if (!key) {
-      return absl::nullopt;
+      return std::nullopt;
     }
     ConsumeWhitespace(str);
     if (!ConsumeToken(str, ":")) {
       return ParseError("Expected ':'", *str);
     }
     ConsumeWhitespace(str);
-    absl::optional<Value> v = ParseValue(str);
+    std::optional<Value> v = ParseValue(str);
     if (!v) {
-      return absl::nullopt;
+      return std::nullopt;
     }
     out.emplace(*key, *v);
   }
   return ParseError("Unfinished object", *str);
 }
 
-absl::optional<Value> ParseValue(absl::string_view* str) {
+std::optional<Value> ParseValue(absl::string_view* str) {
   ConsumeWhitespace(str);
   if (str->empty()) {
     return ParseError("Empty string", *str);
@@ -333,7 +333,7 @@ std::ostream& operator<<(std::ostream& os, const Value& v) {
   return os << ToString(v);
 }
 
-absl::optional<Value> FromString(absl::string_view str) {
+std::optional<Value> FromString(absl::string_view str) {
   return ParseValue(&str);
 }
 

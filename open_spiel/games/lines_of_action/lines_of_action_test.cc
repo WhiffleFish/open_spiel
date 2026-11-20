@@ -20,12 +20,12 @@
 #include <string>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/random/distributions.h"
-#include "open_spiel/abseil-cpp/absl/strings/ascii.h"
-#include "open_spiel/abseil-cpp/absl/strings/match.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "absl/random/distributions.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
+#include "absl/types/optional.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
 #include "open_spiel/spiel_utils.h"
@@ -117,9 +117,9 @@ void PlayThroughTestGames() {
 
   for (const char* filename : kTestGameFileNames) {
     std::string full_filename = absl::StrCat(kFilePathPrefix, filename);
-    absl::optional<std::string> file = FindFile(full_filename, 2);
+    std::optional<std::string> file = FindFile(full_filename, 2);
 
-    if (file != absl::nullopt) {
+    if (file != std::nullopt) {
       std::cout << "Playing through test game " << filename << std::endl;
       std::string game_trace = file::ReadContentsFromFile(*file, "r");
       std::replace(game_trace.begin(), game_trace.end(), '\n', ' ');

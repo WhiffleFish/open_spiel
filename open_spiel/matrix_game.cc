@@ -18,8 +18,8 @@
 #include <string>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_join.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
 
@@ -60,7 +60,7 @@ GameType::Utility GetUtilityType(const std::vector<double>& row_player_utils,
   }
 }
 
-absl::optional<double> GetUtilitySum(
+std::optional<double> GetUtilitySum(
     const std::vector<double>& row_player_utils,
     const std::vector<double>& col_player_utils) {
   double util_sum = 0;
@@ -79,7 +79,7 @@ absl::optional<double> GetUtilitySum(
   if (constant_sum) {
     return Near(util_sum, 0.0) ? 0 : util_sum;
   } else {
-    return absl::nullopt;
+    return std::nullopt;
   }
 }
 
@@ -210,7 +210,7 @@ std::shared_ptr<const MatrixGame> CreateMatrixGame(
       game_type, {}, row_names, col_names, flat_row_utils, flat_col_utils));
 }
 
-absl::optional<double> MatrixGame::UtilitySum() const {
+std::optional<double> MatrixGame::UtilitySum() const {
   return GetUtilitySum(row_utilities_, col_utilities_);
 }
 

@@ -24,13 +24,13 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/strings/match.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_join.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/algorithm/container.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/games/shogi/shogi_board.h"
 #include "open_spiel/observer.h"
@@ -117,7 +117,7 @@ Player ShogiState::CurrentPlayer() const {
 }
 
 Action ShogiState::ParseMoveToAction(const std::string& move_str) const {
-  absl::optional<Move> move = Board().ParseMove(move_str);
+  std::optional<Move> move = Board().ParseMove(move_str);
   if (!move.has_value()) {
     return kInvalidAction;
   }
@@ -331,7 +331,7 @@ ShogiState::ExtractSFenAndMaybeMoves() const {
   return std::make_pair(initial_sfen, move_lans);
 }
 
-absl::optional<std::vector<double>> ShogiState::MaybeFinalReturns() const {
+std::optional<std::vector<double>> ShogiState::MaybeFinalReturns() const {
   if (IsRepetitionEnd()) {
     // Perpetual check repetition could occur either with a player giving
     // check again or with the other player escaping to the same position.
@@ -371,7 +371,7 @@ absl::optional<std::vector<double>> ShogiState::MaybeFinalReturns() const {
   if (Board().KingInEnemyCamp(just_moved) && Board().KingInEnemyCamp(on_move)) {
     return std::vector<double>{DrawUtility(), DrawUtility()};
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 std::string ShogiState::Serialize() const {
